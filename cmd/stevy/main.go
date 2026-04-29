@@ -61,11 +61,22 @@ type backend struct {
 	closeFn func()
 }
 
+func jobLockDuration() time.Duration {
+	if v := os.Getenv("JOB_LOCK_DURATION"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return 30 * time.Second
+}
+
 func openBackend(ctx context.Context, dsn string) (*backend, error) {
 	d, err := dialect.FromDSN(dsn)
 	if err != nil {
 		return nil, err
 	}
+
+	lockDur := jobLockDuration()
 
 	switch d {
 	case dialect.Postgres:
@@ -78,7 +89,7 @@ func openBackend(ctx context.Context, dsn string) (*backend, error) {
 			dialect: d,
 			sqlDB:   sqlDB,
 			pgPool:  pool,
-			driver:  service.NewPGDriver(pool),
+			driver:  service.NewPGDriver(pool, lockDur),
 			closeFn: func() { sqlDB.Close(); pool.Close() },
 		}, nil
 
@@ -92,7 +103,7 @@ func openBackend(ctx context.Context, dsn string) (*backend, error) {
 		return &backend{
 			dialect: d,
 			sqlDB:   sqlDB,
-			driver:  service.NewSQLiteDriver(sqlDB),
+			driver:  service.NewSQLiteDriver(sqlDB, lockDur),
 			closeFn: func() { sqlDB.Close() },
 		}, nil
 	}
@@ -152,10 +163,15 @@ func cmdScheduler() error {
 			n, err := b.driver.PromoteScheduledJobs(ctx, 1000)
 			if err != nil {
 				logger.Error("promote", "err", err)
-				continue
-			}
-			if n > 0 {
+			} else if n > 0 {
 				logger.Info("promoted", "count", n)
+			}
+
+			expired, err := b.driver.FailExpiredJobs(ctx, 1000)
+			if err != nil {
+				logger.Error("fail_expired", "err", err)
+			} else if expired > 0 {
+				logger.Info("failed_expired", "count", expired)
 			}
 		}
 	}

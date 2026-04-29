@@ -14,11 +14,12 @@ import (
 )
 
 type PGDriver struct {
-	pool *pgxpool.Pool
+	pool         *pgxpool.Pool
+	lockDuration time.Duration
 }
 
-func NewPGDriver(pool *pgxpool.Pool) *PGDriver {
-	return &PGDriver{pool: pool}
+func NewPGDriver(pool *pgxpool.Pool, lockDuration time.Duration) *PGDriver {
+	return &PGDriver{pool: pool, lockDuration: lockDuration}
 }
 
 const workerActiveWindow = 60 * time.Second
@@ -78,15 +79,17 @@ func (d *PGDriver) ClaimJob(ctx context.Context, queue string, workerID int64) (
 		return nil, err
 	}
 
+	lockMs := d.lockDuration.Milliseconds()
 	const q = `
 WITH paused AS (
     SELECT 1 FROM queues WHERE name = $1 AND paused_at IS NOT NULL
 ), claimed AS (
     UPDATE jobs
-    SET status       = 'running',
-        attempt      = attempt + 1,
-        attempted_at = NOW(),
-        attempted_by = array_append(attempted_by, $2)
+    SET status          = 'running',
+        attempt         = attempt + 1,
+        attempted_at    = NOW(),
+        attempted_by    = array_append(attempted_by, $2),
+        lock_expires_at = NOW() + ($3::bigint || ' milliseconds')::interval
     WHERE NOT EXISTS (SELECT 1 FROM paused)
       AND id = (
         SELECT id FROM jobs
@@ -104,7 +107,7 @@ SELECT id, queue, kind, status, priority, attempt, max_attempts, progress,
        created_at, scheduled_at, attempted_at, finalized_at
 FROM claimed
 `
-	row, err := scanJobRowPG(d.pool.QueryRow(ctx, q, queue, workerID))
+	row, err := scanJobRowPG(d.pool.QueryRow(ctx, q, queue, workerID, lockMs))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -146,6 +149,50 @@ func (d *PGDriver) FailJob(ctx context.Context, id string, errMsg string, backof
 		return ErrWrongState
 	}
 	return err
+}
+
+func (d *PGDriver) HeartbeatJob(ctx context.Context, id string) error {
+	lockMs := d.lockDuration.Milliseconds()
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE jobs
+		SET lock_expires_at = NOW() + ($2::bigint || ' milliseconds')::interval
+		WHERE id = $1 AND status = 'running'
+	`, id, lockMs)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrWrongState
+	}
+	return nil
+}
+
+func (d *PGDriver) FailExpiredJobs(ctx context.Context, limit int) (int64, error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE jobs
+		SET status = CASE WHEN attempt >= max_attempts THEN 'discarded' ELSE 'retryable' END,
+		    scheduled_at = CASE WHEN attempt >= max_attempts THEN scheduled_at ELSE NOW() END,
+		    errors = errors || jsonb_build_array(jsonb_build_object(
+		        'at', NOW(), 'attempt', attempt, 'error', 'job lock expired'
+		    )),
+		    finalized_at    = CASE WHEN attempt >= max_attempts THEN NOW() ELSE NULL END,
+		    lock_expires_at = NULL
+		WHERE id IN (
+		    SELECT id FROM jobs
+		    WHERE status = 'running'
+		      AND lock_expires_at < NOW()
+		    ORDER BY lock_expires_at ASC
+		    LIMIT $1
+		    FOR UPDATE SKIP LOCKED
+		)
+	`, limit)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 func (d *PGDriver) PromoteJob(ctx context.Context, id string) error {

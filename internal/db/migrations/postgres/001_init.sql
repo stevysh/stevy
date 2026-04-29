@@ -36,8 +36,9 @@ CREATE TABLE jobs (
     attempted_by TEXT[] NOT NULL DEFAULT '{}',
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     scheduled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    attempted_at TIMESTAMPTZ,
-    finalized_at TIMESTAMPTZ
+    attempted_at   TIMESTAMPTZ,
+    finalized_at   TIMESTAMPTZ,
+    lock_expires_at TIMESTAMPTZ
 );
 
 CREATE INDEX jobs_pickup_idx ON jobs(queue, priority, scheduled_at) WHERE status = 'available';

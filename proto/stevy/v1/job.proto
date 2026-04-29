@@ -76,6 +76,11 @@ message FailJobRequest {
 }
 message FailJobResponse {}
 
+message HeartbeatJobRequest {
+  string id = 1;
+}
+message HeartbeatJobResponse {}
+
 message CancelJobRequest {
   string id = 1;
 }
@@ -197,6 +202,12 @@ service JobService {
   rpc FailJob(FailJobRequest) returns (FailJobResponse) {
     option (google.api.http) = {
       post: "/v1/jobs/{id}/fail"
+      body: "*"
+    };
+  }
+  rpc HeartbeatJob(HeartbeatJobRequest) returns (HeartbeatJobResponse) {
+    option (google.api.http) = {
+      post: "/v1/jobs/{id}/heartbeat"
       body: "*"
     };
   }

@@ -26,7 +26,8 @@ Visit `http://localhost:3000` to sign in and manage jobs, queues, workers, and A
 | `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 client secret | required |
 | `OAUTH_REDIRECT_URL` | OAuth callback URL | required |
 | `ALLOWED_DOMAINS` | Comma-separated list of allowed email domains | — (all allowed) |
-| `SCHEDULER_INTERVAL` | How often the scheduler promotes jobs | `1s` |
+| `SCHEDULER_INTERVAL` | How often the scheduler runs | `1s` |
+| `JOB_LOCK_DURATION` | How long a claimed job lock lasts; workers must heartbeat before it expires | `30s` |
 | `MIGRATE` | Run migrations on startup when `true` | — |
 
 ## Database
@@ -64,7 +65,7 @@ All RPC endpoints require `Authorization: Bearer <key>`. Two key types:
 | Prefix | Issued from | Allowed RPCs |
 |---|---|---|
 | `stv_` | Dashboard → API Keys | All job and queue RPCs |
-| `stw_` | Dashboard → Workers | `ClaimJob`, `CompleteJob`, `FailJob`, `SetJobProgress` |
+| `stw_` | Dashboard → Workers | `ClaimJob`, `CompleteJob`, `FailJob`, `HeartbeatJob`, `SetJobProgress` |
 
 Plaintext key shown once on creation — only the SHA-256 hash is stored.
 
@@ -82,8 +83,13 @@ A single endpoint serves all protocols via [vanguard-go](https://github.com/conn
 ## Worker flow
 
 ```
-CreateJob  →  ClaimJob  →  (SetJobProgress)  →  CompleteJob | FailJob
+CreateJob  →  ClaimJob  →  (HeartbeatJob loop)  →  CompleteJob | FailJob
+                               (SetJobProgress)
 ```
+
+Workers must call `HeartbeatJob` at least once every `JOB_LOCK_DURATION` (default `30s`) to
+keep their lock alive. If a worker dies, the scheduler will fail the job automatically on the
+next tick and reschedule it (up to `max_attempts`).
 
 ```bash
 # Create a job — REST (client key)

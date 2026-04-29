@@ -15,11 +15,12 @@ import (
 // SQLite serialises writers at the DB level, so concurrent ClaimJob calls
 // queue but never race — no FOR UPDATE SKIP LOCKED needed.
 type SQLiteDriver struct {
-	db *sql.DB
+	db           *sql.DB
+	lockDuration time.Duration
 }
 
-func NewSQLiteDriver(db *sql.DB) *SQLiteDriver {
-	return &SQLiteDriver{db: db}
+func NewSQLiteDriver(db *sql.DB, lockDuration time.Duration) *SQLiteDriver {
+	return &SQLiteDriver{db: db, lockDuration: lockDuration}
 }
 
 const sqliteTimeFmt = "2006-01-02 15:04:05"
@@ -97,15 +98,17 @@ func (d *SQLiteDriver) ClaimJob(ctx context.Context, queue string, workerID int6
 		return nil, err
 	}
 
+	lockSec := int64(d.lockDuration.Seconds())
 	const q = `
 WITH paused AS (
     SELECT 1 FROM queues WHERE name = ? AND paused_at IS NOT NULL
 ), claimed AS (
     UPDATE jobs
-    SET status = 'running',
-        attempt = attempt + 1,
-        attempted_at = CURRENT_TIMESTAMP,
-        attempted_by = json_insert(COALESCE(attempted_by, '[]'), '$[#]', ?)
+    SET status          = 'running',
+        attempt         = attempt + 1,
+        attempted_at    = CURRENT_TIMESTAMP,
+        attempted_by    = json_insert(COALESCE(attempted_by, '[]'), '$[#]', ?),
+        lock_expires_at = datetime('now', '+' || ? || ' seconds')
     WHERE NOT EXISTS (SELECT 1 FROM paused)
       AND id = (
         SELECT id FROM jobs
@@ -125,7 +128,7 @@ SELECT id, queue, kind, status, priority, attempt, max_attempts, progress,
        strftime('%Y-%m-%d %H:%M:%S', finalized_at)
 FROM claimed
 `
-	row, err := scanJobRowSqlite(d.db.QueryRowContext(ctx, q, queue, workerID, queue))
+	row, err := scanJobRowSqlite(d.db.QueryRowContext(ctx, q, queue, workerID, lockSec, queue))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -169,6 +172,50 @@ func (d *SQLiteDriver) FailJob(ctx context.Context, id string, errMsg string, ba
 		return ErrWrongState
 	}
 	return err
+}
+
+func (d *SQLiteDriver) HeartbeatJob(ctx context.Context, id string) error {
+	lockSec := int64(d.lockDuration.Seconds())
+	res, err := d.db.ExecContext(ctx, `
+		UPDATE jobs
+		SET lock_expires_at = datetime('now', '+' || ? || ' seconds')
+		WHERE id = ? AND status = 'running'
+	`, lockSec, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrWrongState
+	}
+	return nil
+}
+
+func (d *SQLiteDriver) FailExpiredJobs(ctx context.Context, limit int) (int64, error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+	errorEntry := buildErrorEntry("job lock expired")
+	res, err := d.db.ExecContext(ctx, `
+		UPDATE jobs
+		SET status = CASE WHEN attempt >= max_attempts THEN 'discarded' ELSE 'retryable' END,
+		    scheduled_at = CASE WHEN attempt >= max_attempts THEN scheduled_at ELSE CURRENT_TIMESTAMP END,
+		    errors = json_insert(COALESCE(errors, '[]'), '$[#]', json(?)),
+		    finalized_at    = CASE WHEN attempt >= max_attempts THEN CURRENT_TIMESTAMP ELSE NULL END,
+		    lock_expires_at = NULL
+		WHERE id IN (
+		    SELECT id FROM jobs
+		    WHERE status = 'running'
+		      AND lock_expires_at < CURRENT_TIMESTAMP
+		    ORDER BY lock_expires_at ASC
+		    LIMIT ?
+		)
+	`, errorEntry, limit)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
 }
 
 func (d *SQLiteDriver) PromoteJob(ctx context.Context, id string) error {

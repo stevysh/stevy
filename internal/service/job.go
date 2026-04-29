@@ -157,6 +157,19 @@ func (s *JobService) computeBackoffMs(ctx context.Context, id string) (int, erro
 	return ms, nil
 }
 
+// ─────────────────────────── HeartbeatJob ───────────────────────────
+
+func (s *JobService) HeartbeatJob(ctx context.Context, req *connect.Request[jobv1.HeartbeatJobRequest]) (*connect.Response[jobv1.HeartbeatJobResponse], error) {
+	id, err := parseJobID(req.Msg.GetId())
+	if err != nil {
+		return nil, err
+	}
+	if err := s.driver.HeartbeatJob(ctx, id); err != nil {
+		return nil, mapErr(err, "heartbeat", id)
+	}
+	return connect.NewResponse(&jobv1.HeartbeatJobResponse{}), nil
+}
+
 // ─────────────────────────── CancelJob ───────────────────────────
 
 func (s *JobService) CancelJob(ctx context.Context, req *connect.Request[jobv1.CancelJobRequest]) (*connect.Response[jobv1.CancelJobResponse], error) {
