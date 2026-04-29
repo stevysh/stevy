@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"flag"
@@ -9,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"bytes"
 	"strings"
 	"syscall"
 	"time"
@@ -59,7 +59,7 @@ func main() {
 type backend struct {
 	dialect dialect.Dialect
 	sqlDB   *sql.DB
-	pgPool  *pgxpool.Pool   // only set when dialect == Postgres
+	pgPool  *pgxpool.Pool // only set when dialect == Postgres
 	driver  service.Driver
 	closeFn func()
 }
