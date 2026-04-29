@@ -1,7 +1,16 @@
 version: v2
 modules:
-  - name: buf.build/stevysh/stevy
-    path: proto
+  - path: proto
+    name: buf.build/stevysh/stevy
 deps:
   - buf.build/bufbuild/protovalidate
   - buf.build/googleapis/googleapis
+  - buf.build/gnostic/gnostic
+lint:
+  use:
+    - STANDARD
+  ignore:
+    - proto/openapi.proto
+breaking:
+  use:
+    - FILE

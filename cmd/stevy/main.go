@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"bytes"
 	"strings"
 	"syscall"
 	"time"
@@ -255,10 +256,18 @@ func cmdServe() error {
 	mux.HandleFunc("GET /{id}", webHandler.JobPage)
 	mux.HandleFunc("/", webHandler.Index)
 
+	hostname := getenv("HOSTNAME", "http://localhost:8080")
 	publicFS := http.FileServer(http.Dir("public"))
+	if spec, err := os.ReadFile("public/openapi.yaml"); err == nil {
+		spec = bytes.ReplaceAll(spec, []byte("https://stevy.example.com"), []byte(hostname))
+		mux.HandleFunc("GET /openapi.yaml", func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+			w.Write(spec)
+		})
+	}
 	if entries, err := os.ReadDir("public"); err == nil {
 		for _, e := range entries {
-			if !e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			if !e.IsDir() && !strings.HasPrefix(e.Name(), ".") && e.Name() != "openapi.yaml" {
 				mux.Handle("GET /"+e.Name(), publicFS)
 			}
 		}
