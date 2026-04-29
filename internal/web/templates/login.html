@@ -16,31 +16,23 @@
     }
     .card {
       background: #fff;
-      padding: 48px 40px;
+      padding: 24px 24px;
       border-radius: 12px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
       text-align: center;
-      max-width: 360px;
+      max-width: 240px;
       width: 100%;
     }
     h1 {
-      margin: 0 0 8px;
+      margin: 0 0 32px;
       font-size: 24px;
       color: #24292f;
     }
-    p {
-      color: #57606a;
-      margin: 0 0 32px;
-      font-size: 14px;
-    }
     .google-btn {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
       gap: 10px;
-      width: 100%;
-      box-sizing: border-box;
-      padding: 12px 16px;
+      padding: 9px 14px;
       background: #fff;
       border: 1px solid #d0d7de;
       border-radius: 8px;
@@ -62,8 +54,7 @@
 </head>
 <body>
   <div class="card">
-    <h1>Stevy</h1>
-    <p>Sign in to access the job queue dashboard</p>
+    <h1>Job Queue</h1>
     <a href="/auth/google/login" class="google-btn">
       <svg class="google-icon" viewBox="0 0 24 24">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -74,5 +65,6 @@
       Sign in with Google
     </a>
   </div>
+  <footer style="position:fixed;bottom:1rem;font-size:0.75rem;text-align:center;line-height:1.8;">Powered by <a href="https://stevy.sh" style="color:#999;text-decoration:none;">Stevy</a><br><a href="/openapi.yaml" style="color:#999;text-decoration:none;">API Spec</a></footer>
 </body>
 </html>
