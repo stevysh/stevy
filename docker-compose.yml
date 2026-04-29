@@ -8,7 +8,7 @@ services:
       DATABASE_URL: file:/data/stevy.db
       MIGRATE: "true"
       PORT: "8080"
-      SESSION_SECRET: ""
+      SESSION_SECRET: ${SESSION_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       HOSTNAME: ${HOSTNAME:-http://localhost:8080}
