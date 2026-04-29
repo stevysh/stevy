@@ -1,0 +1,80 @@
+version: 2
+before:
+  hooks:
+    - buf generate
+builds:
+  - main: ./cmd/stevy
+    binary: stevy
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{ .Version }}
+    goarch:
+      - amd64
+      - arm64
+    goos:
+      - linux
+      - darwin
+      - windows
+dockers:
+  - goos: linux
+    goarch: amd64
+    image_templates:
+      - ghcr.io/stevysh/stevy:{{ .Tag }}-amd64
+      - stevysh/stevy:{{ .Tag }}-amd64
+    dockerfile: Dockerfile
+    use: buildx
+    extra_files:
+      - public/
+    build_flag_templates:
+      - --platform=linux/amd64
+      - --label=org.opencontainers.image.created={{ .Date }}
+      - --label=org.opencontainers.image.name={{ .ProjectName }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+      - --label=org.opencontainers.image.version={{ .Version }}
+      - --label=org.opencontainers.image.source={{ .GitURL }}
+  - goos: linux
+    goarch: arm64
+    image_templates:
+      - ghcr.io/stevysh/stevy:{{ .Tag }}-arm64
+      - stevysh/stevy:{{ .Tag }}-arm64
+    dockerfile: Dockerfile
+    use: buildx
+    extra_files:
+      - public/
+    build_flag_templates:
+      - --platform=linux/arm64
+      - --label=org.opencontainers.image.created={{ .Date }}
+      - --label=org.opencontainers.image.name={{ .ProjectName }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+      - --label=org.opencontainers.image.version={{ .Version }}
+      - --label=org.opencontainers.image.source={{ .GitURL }}
+docker_manifests:
+  - name_template: ghcr.io/stevysh/stevy:{{ .Tag }}
+    image_templates:
+      - ghcr.io/stevysh/stevy:{{ .Tag }}-amd64
+      - ghcr.io/stevysh/stevy:{{ .Tag }}-arm64
+  - name_template: ghcr.io/stevysh/stevy:latest
+    image_templates:
+      - ghcr.io/stevysh/stevy:{{ .Tag }}-amd64
+      - ghcr.io/stevysh/stevy:{{ .Tag }}-arm64
+  - name_template: stevysh/stevy:{{ .Tag }}
+    image_templates:
+      - stevysh/stevy:{{ .Tag }}-amd64
+      - stevysh/stevy:{{ .Tag }}-arm64
+  - name_template: stevysh/stevy:latest
+    image_templates:
+      - stevysh/stevy:{{ .Tag }}-amd64
+      - stevysh/stevy:{{ .Tag }}-arm64
+brews:
+  - repository:
+      owner: stevysh
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    description: "Self-hosted job queue service"
+    homepage: "https://github.com/stevysh/stevy"
+    license: "Apache-2.0"
+changelog:
+  disable: true

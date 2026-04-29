@@ -31,6 +31,8 @@ import (
 	"github.com/stevysh/stevy/internal/web"
 )
 
+var Version = "dev"
+
 func main() {
 	// Load .env if present; existing env vars take precedence.
 	_ = godotenv.Load()
@@ -43,7 +45,7 @@ func main() {
 	case "", "serve":
 		exit(cmdServe())
 	case "version":
-		fmt.Println("stevy dev")
+		fmt.Println("stevy", Version)
 	case "help", "-h", "--help":
 		fmt.Println("usage: stevy [serve|scheduler|migrate|version]")
 	default:
