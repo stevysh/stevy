@@ -205,7 +205,7 @@ func cmdServe() error {
 	oauth := auth.NewOAuthHandler(auth.OAuthConfig{
 		ClientID:       mustEnv("GOOGLE_CLIENT_ID"),
 		ClientSecret:   mustEnv("GOOGLE_CLIENT_SECRET"),
-		RedirectURL:    mustEnv("OAUTH_REDIRECT_URL"),
+		RedirectURL:    getenv("HOSTNAME", "http://localhost:8080") + "/auth/google/callback",
 		AllowedDomains: splitCSV(os.Getenv("ALLOWED_DOMAINS")),
 	}, sessions, database)
 	apiKeys := auth.NewAPIKeyHandler(database, sessions)
@@ -253,7 +253,16 @@ func cmdServe() error {
 	mux.HandleFunc("GET /{id}", webHandler.JobPage)
 	mux.HandleFunc("/", webHandler.Index)
 
-	addr := ":" + getenv("PORT", "3000")
+	publicFS := http.FileServer(http.Dir("public"))
+	if entries, err := os.ReadDir("public"); err == nil {
+		for _, e := range entries {
+			if !e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+				mux.Handle("GET /"+e.Name(), publicFS)
+			}
+		}
+	}
+
+	addr := ":" + getenv("PORT", "8080")
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: h2c.NewHandler(mux, &http2.Server{}),

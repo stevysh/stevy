@@ -13,7 +13,7 @@ export DATABASE_URL="sqlite://./stevy.db"
 go run ./cmd/stevy serve --migrate
 ```
 
-Visit `http://localhost:3000` to sign in and manage jobs, queues, workers, and API keys.
+Visit `http://localhost:8080` to sign in and manage jobs, queues, workers, and API keys.
 
 ## Environment variables
 
@@ -24,7 +24,7 @@ Visit `http://localhost:3000` to sign in and manage jobs, queues, workers, and A
 | `SESSION_SECRET` | HMAC key for signing session cookies | required |
 | `GOOGLE_CLIENT_ID` | Google OAuth 2.0 client ID | required |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 client secret | required |
-| `OAUTH_REDIRECT_URL` | OAuth callback URL | required |
+| `HOSTNAME` | Public base URL, used to build the OAuth callback URL | `http://localhost:8080` |
 | `ALLOWED_DOMAINS` | Comma-separated list of allowed email domains | — (all allowed) |
 | `SCHEDULER_INTERVAL` | How often the scheduler runs | `1s` |
 | `JOB_LOCK_DURATION` | How long a claimed job lock lasts; workers must heartbeat before it expires | `30s` |
@@ -93,20 +93,20 @@ next tick and reschedule it (up to `max_attempts`).
 
 ```bash
 # Create a job — REST (client key)
-curl -X POST http://localhost:3000/v1/jobs \
+curl -X POST http://localhost:8080/v1/jobs \
   -H "Authorization: Bearer stv_XXXXXX" \
   -H "Content-Type: application/json" \
   -d '{"queue": "translate", "kind": "TranslateDoc", "payload": {"doc_id": "abc"}}'
 
 # Create a job — Connect
-curl -X POST http://localhost:3000/stevy.v1.JobService/CreateJob \
+curl -X POST http://localhost:8080/stevy.v1.JobService/CreateJob \
   -H "Authorization: Bearer stv_XXXXXX" \
   -H "Content-Type: application/json" \
   -H "Connect-Protocol-Version: 1" \
   -d '{"queue": "translate", "kind": "TranslateDoc", "payload": {"doc_id": "abc"}}'
 
 # Claim next job — REST (worker key)
-curl -X POST http://localhost:3000/v1/queues/translate/claim \
+curl -X POST http://localhost:8080/v1/queues/translate/claim \
   -H "Authorization: Bearer stw_XXXXXX"
 ```
 
@@ -125,7 +125,7 @@ On request-based platforms (Cloud Run, etc.) where a persistent process isn't pr
 trigger a single pass over HTTP instead:
 
 ```bash
-curl -X POST http://localhost:3000/scheduler/run
+curl -X POST http://localhost:8080/scheduler/run
 ```
 
 ## Job statuses

@@ -1,0 +1,20 @@
+services:
+  stevy:
+    build:
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: file:/data/stevy.db
+      MIGRATE: "true"
+      PORT: "8080"
+      SESSION_SECRET: ""
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      HOSTNAME: ${HOSTNAME:-http://localhost:8080}
+      JOB_LOCK_DURATION: 30s
+    volumes:
+      - stevy-data:/data
+
+volumes:
+  stevy-data:
