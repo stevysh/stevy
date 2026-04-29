@@ -8,9 +8,7 @@ option go_package = "github.com/stevysh/stevy/gen/stevy/v1;stevyv1";
 
 service QueueService {
   rpc GetQueue(GetQueueRequest) returns (GetQueueResponse) {
-    option (google.api.http) = {
-      get: "/v1/queues/{name}"
-    };
+    option (google.api.http) = {get: "/v1/queues/{name}"};
   }
 }
 

@@ -2,10 +2,10 @@ syntax = "proto3";
 
 package stevy.v1;
 
-import "google/api/annotations.proto";
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/struct.proto";
 import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/stevysh/stevy/gen/stevy/v1;stevyv1";
 
@@ -20,9 +20,23 @@ message Job {
   string queue = 2;
   string kind = 3;
   google.protobuf.Struct payload = 4;
-  string status = 5 [(buf.validate.field).string = {in: ["pending", "scheduled", "available", "running", "retryable", "cancelled", "discarded", "completed"]}];
+  string status = 5 [(buf.validate.field).string = {
+    in: [
+      "pending",
+      "scheduled",
+      "available",
+      "running",
+      "retryable",
+      "cancelled",
+      "discarded",
+      "completed"
+    ]
+  }];
   int32 attempt = 6;
-  int32 progress = 7 [(buf.validate.field).int32 = {gte: 0, lte: 100}];
+  int32 progress = 7 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 100
+  }];
   google.protobuf.Struct result = 8;
   repeated AttemptError errors = 9;
   google.protobuf.Timestamp created_at = 10;
@@ -47,7 +61,12 @@ message JobOptions {
 }
 
 message BackoffOptions {
-  string type = 1 [(buf.validate.field).string = {in: ["fixed", "exponential"]}];
+  string type = 1 [(buf.validate.field).string = {
+    in: [
+      "fixed",
+      "exponential"
+    ]
+  }];
   int64 delay = 2 [(buf.validate.field).int64 = {gte: 0}];
   bool jitter = 3;
 }
@@ -94,7 +113,10 @@ message PromoteJobResponse {}
 message ListJobsRequest {
   optional string status = 1;
   optional string queue = 2;
-  optional int32 limit = 3 [(buf.validate.field).int32 = {gte: 1, lte: 1000}];
+  optional int32 limit = 3 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 1000
+  }];
   optional int32 offset = 4 [(buf.validate.field).int32 = {gte: 0}];
 }
 
@@ -111,7 +133,10 @@ message GetJobResponse {
 
 message SetJobProgressRequest {
   string id = 1;
-  int32 progress = 2 [(buf.validate.field).int32 = {gte: 0, lte: 100}];
+  int32 progress = 2 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 100
+  }];
 }
 message SetJobProgressResponse {}
 
@@ -119,8 +144,22 @@ message GetJobStatusRequest {
   string id = 1;
 }
 message GetJobStatusResponse {
-  string status = 1 [(buf.validate.field).string = {in: ["pending", "scheduled", "available", "running", "retryable", "cancelled", "discarded", "completed"]}];
-  int32 progress = 2 [(buf.validate.field).int32 = {gte: 0, lte: 100}];
+  string status = 1 [(buf.validate.field).string = {
+    in: [
+      "pending",
+      "scheduled",
+      "available",
+      "running",
+      "retryable",
+      "cancelled",
+      "discarded",
+      "completed"
+    ]
+  }];
+  int32 progress = 2 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 100
+  }];
   optional string error = 3;
 }
 
@@ -131,8 +170,22 @@ message BatchGetJobStatusesRequest {
 message BatchGetJobStatusesResponse {
   message JobStatusEntry {
     string id = 1;
-    string status = 2 [(buf.validate.field).string = {in: ["pending", "scheduled", "available", "running", "retryable", "cancelled", "discarded", "completed"]}];
-    int32 progress = 3 [(buf.validate.field).int32 = {gte: 0, lte: 100}];
+    string status = 2 [(buf.validate.field).string = {
+      in: [
+        "pending",
+        "scheduled",
+        "available",
+        "running",
+        "retryable",
+        "cancelled",
+        "discarded",
+        "completed"
+      ]
+    }];
+    int32 progress = 3 [(buf.validate.field).int32 = {
+      gte: 0
+      lte: 100
+    }];
     optional string error = 4;
   }
   repeated JobStatusEntry statuses = 1;
@@ -159,14 +212,10 @@ service JobService {
     };
   }
   rpc GetJobStatus(GetJobStatusRequest) returns (GetJobStatusResponse) {
-    option (google.api.http) = {
-      get: "/v1/jobs/{id}/status"
-    };
+    option (google.api.http) = {get: "/v1/jobs/{id}/status"};
   }
   rpc BatchGetJobStatuses(BatchGetJobStatusesRequest) returns (BatchGetJobStatusesResponse) {
-    option (google.api.http) = {
-      get: "/v1/jobs/statuses"
-    };
+    option (google.api.http) = {get: "/v1/jobs/statuses"};
   }
   rpc SetJobProgress(SetJobProgressRequest) returns (SetJobProgressResponse) {
     option (google.api.http) = {
