@@ -1,0 +1,79 @@
+{{define "content"}}
+<style>
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 16px;
+  }
+  .filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1px solid #d0d7de;
+    border-radius: 16px;
+    font-size: 12px;
+    color: #57606a;
+    background: #fff;
+    text-decoration: none;
+    transition: background 0.1s;
+  }
+  .filter-pill:hover { background: #f6f8fa; color: #24292f; }
+  .filter-pill .count {
+    font-variant-numeric: tabular-nums;
+    color: #8c959f;
+    font-weight: 500;
+  }
+  .filter-pill.active {
+    background: #0969da;
+    border-color: #0969da;
+    color: #fff;
+  }
+  .filter-pill.active .count { color: rgba(255,255,255,0.8); }
+</style>
+
+<div class="card">
+  <h2>Jobs</h2>
+
+  <div class="filter-row">
+    <a class="filter-pill {{if eq .StatusFilter ""}}active{{end}}" href="/">
+      All <span class="count">{{.StatusTotal}}</span>
+    </a>
+    {{$active := .StatusFilter}}
+    {{$counts := .StatusCounts}}
+    {{range .Statuses}}
+    <a class="filter-pill {{if eq $active .}}active{{end}}" href="/?status={{.}}">
+      {{.}} <span class="count">{{index $counts .}}</span>
+    </a>
+    {{end}}
+  </div>
+
+  {{if .Jobs}}
+  <table class="compact">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Queue</th>
+        <th>Kind</th>
+        <th>Status</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Jobs}}
+      <tr>
+        <td><a href="/{{.ID}}"><code>{{.ID}}</code></a></td>
+        <td>{{.Queue}}</td>
+        <td>{{.Kind}}</td>
+        <td><span class="badge badge-{{.Status}}">{{.Status}}</span></td>
+        <td>{{.CreatedAt}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">No jobs{{if .StatusFilter}} with status <code>{{.StatusFilter}}</code>{{end}}.</p>
+  {{end}}
+</div>
+{{end}}

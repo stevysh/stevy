@@ -1,0 +1,7 @@
+version: v2
+modules:
+  - name: buf.build/stevysh/stevy
+    path: proto
+deps:
+  - buf.build/bufbuild/protovalidate
+  - buf.build/googleapis/googleapis

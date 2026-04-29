@@ -1,0 +1,130 @@
+{{define "content"}}
+<style>
+  .job-detail .card { padding: 24px; margin-bottom: 16px; }
+  .job-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .job-detail h2 { font-size: 20px; margin: 0; word-break: break-all; }
+  .meta { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 13px; }
+  .meta .label { color: #57606a; }
+  .meta .value { font-family: monospace; }
+  .progress-wrap { margin-top: 16px; }
+  .progress-bar {
+    height: 8px;
+    background: #eaeef2;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #1f883d;
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #57606a;
+    margin-bottom: 8px;
+  }
+  .job-detail pre {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 12px;
+    overflow-x: auto;
+    margin: 0;
+  }
+  .error-box {
+    background: #ffebe9;
+    border: 1px solid #ffcecb;
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 13px;
+    color: #82071e;
+    font-family: monospace;
+    word-break: break-word;
+  }
+  .polling-note {
+    font-size: 12px;
+    color: #57606a;
+    margin-top: 8px;
+  }
+</style>
+
+<div class="job-detail">
+  <div class="card">
+    <div class="job-header">
+      <span class="badge badge-{{.Status}}">{{.Status}}</span>
+      <h2>{{.Kind}}</h2>
+    </div>
+
+    <div class="meta">
+      <span class="label">Job ID</span>
+      <span class="value">{{.ID}}</span>
+
+      <span class="label">Queue</span>
+      <span class="value">{{.Queue}}</span>
+
+      <span class="label">Created</span>
+      <span class="value">{{.CreatedAt}}</span>
+
+      {{if .AttemptedAt}}
+      <span class="label">Attempted</span>
+      <span class="value">{{.AttemptedAt}}</span>
+      {{end}}
+
+      {{if .FinalizedAt}}
+      <span class="label">Finished</span>
+      <span class="value">{{.FinalizedAt}}</span>
+      {{end}}
+
+      {{if .Attempt}}
+      <span class="label">Attempts</span>
+      <span class="value">{{.Attempt}}</span>
+      {{end}}
+    </div>
+
+    {{if .Polling}}
+    <p class="polling-note">Refreshing every 3 seconds…</p>
+    <script>setTimeout(() => location.reload(), 3000);</script>
+    {{end}}
+
+    {{if and (eq .Status "running") (gt .Progress 0)}}
+    <div class="progress-wrap">
+      <div class="section-label">Progress — {{.Progress}}%</div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:{{.Progress}}%"></div>
+      </div>
+    </div>
+    {{end}}
+  </div>
+
+  {{if .Errors}}
+  <div class="card">
+    <div class="section-label">Errors</div>
+    {{range .Errors}}
+    <div class="error-box" style="margin-bottom:8px">
+      <span style="opacity:.6;font-size:11px">attempt {{.Attempt}} · {{.At}}</span><br>{{.Error}}
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+
+  {{if .Result}}
+  <div class="card">
+    <div class="section-label">Result</div>
+    <pre>{{.Result}}</pre>
+  </div>
+  {{end}}
+
+  {{if .Payload}}
+  <div class="card">
+    <div class="section-label">Payload</div>
+    <pre>{{.Payload}}</pre>
+  </div>
+  {{end}}
+</div>
+{{end}}
