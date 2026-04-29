@@ -1,0 +1,263 @@
+syntax = "proto3";
+
+package stevy.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/stevysh/stevy/gen/stevy/v1;stevyv1";
+
+message AttemptError {
+  int32 attempt = 1;
+  string error = 2;
+  google.protobuf.Timestamp at = 3;
+}
+
+message Job {
+  string id = 1;
+  string queue = 2;
+  string kind = 3;
+  google.protobuf.Struct payload = 4;
+  string status = 5 [(buf.validate.field).string = {
+    in: [
+      "pending",
+      "scheduled",
+      "available",
+      "running",
+      "retryable",
+      "cancelled",
+      "discarded",
+      "completed"
+    ]
+  }];
+  int32 attempt = 6;
+  int32 progress = 7 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 100
+  }];
+  google.protobuf.Struct result = 8;
+  repeated AttemptError errors = 9;
+  google.protobuf.Timestamp created_at = 10;
+  optional google.protobuf.Timestamp attempted_at = 11;
+  optional google.protobuf.Timestamp scheduled_at = 12;
+  optional google.protobuf.Timestamp finalized_at = 13;
+}
+
+message CreateJobRequest {
+  string queue = 1;
+  string kind = 2;
+  google.protobuf.Struct payload = 3;
+  optional JobOptions options = 4;
+}
+
+message JobOptions {
+  bool pending = 1;
+  int64 delay = 2 [(buf.validate.field).int64 = {gte: 0}]; // milliseconds
+  int32 attempts = 3 [(buf.validate.field).int32 = {gte: 0}];
+  int32 priority = 4;
+  BackoffOptions backoff = 5;
+}
+
+message BackoffOptions {
+  string type = 1 [(buf.validate.field).string = {
+    in: [
+      "fixed",
+      "exponential"
+    ]
+  }];
+  int64 delay = 2 [(buf.validate.field).int64 = {gte: 0}];
+  bool jitter = 3;
+}
+
+message CreateJobResponse {
+  Job job = 1;
+}
+
+message ClaimJobRequest {
+  string queue = 1;
+}
+
+message ClaimJobResponse {
+  Job job = 1;
+}
+
+message CompleteJobRequest {
+  string id = 1;
+  google.protobuf.Struct result = 2;
+}
+message CompleteJobResponse {}
+
+message FailJobRequest {
+  string id = 1;
+  string error = 2;
+}
+message FailJobResponse {}
+
+message HeartbeatJobRequest {
+  string id = 1;
+}
+message HeartbeatJobResponse {}
+
+message CancelJobRequest {
+  string id = 1;
+}
+message CancelJobResponse {}
+
+message PromoteJobRequest {
+  string id = 1;
+}
+message PromoteJobResponse {}
+
+message ListJobsRequest {
+  optional string status = 1;
+  optional string queue = 2;
+  optional int32 limit = 3 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 1000
+  }];
+  optional int32 offset = 4 [(buf.validate.field).int32 = {gte: 0}];
+}
+
+message ListJobsResponse {
+  repeated Job jobs = 1;
+}
+
+message GetJobRequest {
+  string id = 1;
+}
+message GetJobResponse {
+  Job job = 1;
+}
+
+message SetJobProgressRequest {
+  string id = 1;
+  int32 progress = 2 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 100
+  }];
+}
+message SetJobProgressResponse {}
+
+message GetJobStatusRequest {
+  string id = 1;
+}
+message GetJobStatusResponse {
+  string status = 1 [(buf.validate.field).string = {
+    in: [
+      "pending",
+      "scheduled",
+      "available",
+      "running",
+      "retryable",
+      "cancelled",
+      "discarded",
+      "completed"
+    ]
+  }];
+  int32 progress = 2 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 100
+  }];
+  optional string error = 3;
+}
+
+message BatchGetJobStatusesRequest {
+  repeated string ids = 1;
+}
+
+message BatchGetJobStatusesResponse {
+  message JobStatusEntry {
+    string id = 1;
+    string status = 2 [(buf.validate.field).string = {
+      in: [
+        "pending",
+        "scheduled",
+        "available",
+        "running",
+        "retryable",
+        "cancelled",
+        "discarded",
+        "completed"
+      ]
+    }];
+    int32 progress = 3 [(buf.validate.field).int32 = {
+      gte: 0
+      lte: 100
+    }];
+    optional string error = 4;
+  }
+  repeated JobStatusEntry statuses = 1;
+}
+
+service JobService {
+  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse) {
+    option (google.api.http) = {
+      get: "/v1/jobs"
+      response_body: "jobs"
+    };
+  }
+  rpc CreateJob(CreateJobRequest) returns (CreateJobResponse) {
+    option (google.api.http) = {
+      post: "/v1/jobs"
+      body: "*"
+      response_body: "job"
+    };
+  }
+  rpc GetJob(GetJobRequest) returns (GetJobResponse) {
+    option (google.api.http) = {
+      get: "/v1/jobs/{id}"
+      response_body: "job"
+    };
+  }
+  rpc GetJobStatus(GetJobStatusRequest) returns (GetJobStatusResponse) {
+    option (google.api.http) = {get: "/v1/jobs/{id}/status"};
+  }
+  rpc BatchGetJobStatuses(BatchGetJobStatusesRequest) returns (BatchGetJobStatusesResponse) {
+    option (google.api.http) = {get: "/v1/jobs/statuses"};
+  }
+  rpc SetJobProgress(SetJobProgressRequest) returns (SetJobProgressResponse) {
+    option (google.api.http) = {
+      patch: "/v1/jobs/{id}/progress"
+      body: "*"
+    };
+  }
+  rpc CancelJob(CancelJobRequest) returns (CancelJobResponse) {
+    option (google.api.http) = {
+      post: "/v1/jobs/{id}/cancel"
+      body: "*"
+    };
+  }
+  rpc PromoteJob(PromoteJobRequest) returns (PromoteJobResponse) {
+    option (google.api.http) = {
+      post: "/v1/jobs/{id}/promote"
+      body: "*"
+    };
+  }
+  rpc ClaimJob(ClaimJobRequest) returns (ClaimJobResponse) {
+    option (google.api.http) = {
+      post: "/v1/queues/{queue}/claim"
+      body: "*"
+      response_body: "job"
+    };
+  }
+  rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse) {
+    option (google.api.http) = {
+      post: "/v1/jobs/{id}/complete"
+      body: "*"
+    };
+  }
+  rpc FailJob(FailJobRequest) returns (FailJobResponse) {
+    option (google.api.http) = {
+      post: "/v1/jobs/{id}/fail"
+      body: "*"
+    };
+  }
+  rpc HeartbeatJob(HeartbeatJobRequest) returns (HeartbeatJobResponse) {
+    option (google.api.http) = {
+      post: "/v1/jobs/{id}/heartbeat"
+      body: "*"
+    };
+  }
+}

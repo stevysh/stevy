@@ -1,0 +1,922 @@
+openapi: 3.1.0
+info:
+  title: Stevy API
+  version: 1.0.0
+servers:
+  - url: https://stevy.example.com
+    description: Your Stevy instance
+paths:
+  /v1/jobs:
+    get:
+      summary: ListJobs
+      operationId: JobService_ListJobs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            title: status
+        - name: queue
+          in: query
+          schema:
+            type: string
+            title: queue
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            title: limit
+            maximum: 1000
+            minimum: 1
+            format: int32
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            title: offset
+            minimum: 0
+            format: int32
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/stevy.v1.Job'
+                title: jobs
+    post:
+      summary: CreateJob
+      operationId: JobService_CreateJob
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/stevy.v1.CreateJobRequest'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                title: job
+                $ref: '#/components/schemas/stevy.v1.Job'
+  /v1/jobs/statuses:
+    get:
+      summary: BatchGetJobStatuses
+      operationId: JobService_BatchGetJobStatuses
+      parameters:
+        - name: ids
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+            title: ids
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/stevy.v1.BatchGetJobStatusesResponse'
+  /v1/jobs/{id}:
+    get:
+      summary: GetJob
+      operationId: JobService_GetJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                title: job
+                $ref: '#/components/schemas/stevy.v1.Job'
+  /v1/jobs/{id}/cancel:
+    post:
+      summary: CancelJob
+      operationId: JobService_CancelJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/stevy.v1.CancelJobResponse'
+  /v1/jobs/{id}/complete:
+    post:
+      summary: CompleteJob
+      operationId: JobService_CompleteJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                result:
+                  title: result
+                  $ref: '#/components/schemas/google.protobuf.Struct'
+              title: CompleteJobRequest
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/stevy.v1.CompleteJobResponse'
+  /v1/jobs/{id}/fail:
+    post:
+      summary: FailJob
+      operationId: JobService_FailJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  title: error
+              title: FailJobRequest
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/stevy.v1.FailJobResponse'
+  /v1/jobs/{id}/heartbeat:
+    post:
+      summary: HeartbeatJob
+      operationId: JobService_HeartbeatJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/stevy.v1.HeartbeatJobResponse'
+  /v1/jobs/{id}/progress:
+    patch:
+      summary: SetJobProgress
+      operationId: JobService_SetJobProgress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                progress:
+                  type: integer
+                  title: progress
+                  maximum: 100
+                  minimum: 0
+                  format: int32
+              title: SetJobProgressRequest
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/stevy.v1.SetJobProgressResponse'
+  /v1/jobs/{id}/promote:
+    post:
+      summary: PromoteJob
+      operationId: JobService_PromoteJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/stevy.v1.PromoteJobResponse'
+  /v1/jobs/{id}/status:
+    get:
+      summary: GetJobStatus
+      operationId: JobService_GetJobStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/stevy.v1.GetJobStatusResponse'
+  /v1/queues/{name}:
+    get:
+      summary: GetQueue
+      operationId: QueueService_GetQueue
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            title: name
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/stevy.v1.GetQueueResponse'
+  /v1/queues/{queue}/claim:
+    post:
+      summary: ClaimJob
+      operationId: JobService_ClaimJob
+      parameters:
+        - name: queue
+          in: path
+          required: true
+          schema:
+            type: string
+            title: queue
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                title: job
+                $ref: '#/components/schemas/stevy.v1.Job'
+components:
+  schemas:
+    google.protobuf.ListValue:
+      type: object
+      properties:
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/google.protobuf.Value'
+          title: values
+          description: Repeated field of dynamically typed values.
+      title: ListValue
+      additionalProperties: false
+      description: |-
+        `ListValue` is a wrapper around a repeated field of values.
+
+         The JSON representation for `ListValue` is JSON array.
+    google.protobuf.NullValue:
+      type: string
+      title: NullValue
+      enum:
+        - NULL_VALUE
+      description: |-
+        `NullValue` is a singleton enumeration to represent the null value for the
+         `Value` type union.
+
+         The JSON representation for `NullValue` is JSON `null`.
+    google.protobuf.Struct:
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/google.protobuf.Value'
+      description: |-
+        `Struct` represents a structured data value, consisting of fields
+         which map to dynamically typed values. In some languages, `Struct`
+         might be supported by a native representation. For example, in
+         scripting languages like JS a struct is represented as an
+         object. The details of that representation are described together
+         with the proto support for the language.
+
+         The JSON representation for `Struct` is JSON object.
+    google.protobuf.Struct.FieldsEntry:
+      type: object
+      properties:
+        key:
+          type: string
+          title: key
+        value:
+          title: value
+          $ref: '#/components/schemas/google.protobuf.Value'
+      title: FieldsEntry
+      additionalProperties: false
+    google.protobuf.Timestamp:
+      type: string
+      examples:
+        - "2023-01-15T01:30:15.01Z"
+        - "2024-12-25T12:00:00Z"
+      format: date-time
+      description: |-
+        A Timestamp represents a point in time independent of any time zone or local
+         calendar, encoded as a count of seconds and fractions of seconds at
+         nanosecond resolution. The count is relative to an epoch at UTC midnight on
+         January 1, 1970, in the proleptic Gregorian calendar which extends the
+         Gregorian calendar backwards to year one.
+
+         All minutes are 60 seconds long. Leap seconds are "smeared" so that no leap
+         second table is needed for interpretation, using a [24-hour linear
+         smear](https://developers.google.com/time/smear).
+
+         The range is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z. By
+         restricting to that range, we ensure that we can convert to and from [RFC
+         3339](https://www.ietf.org/rfc/rfc3339.txt) date strings.
+
+         # Examples
+
+         Example 1: Compute Timestamp from POSIX `time()`.
+
+             Timestamp timestamp;
+             timestamp.set_seconds(time(NULL));
+             timestamp.set_nanos(0);
+
+         Example 2: Compute Timestamp from POSIX `gettimeofday()`.
+
+             struct timeval tv;
+             gettimeofday(&tv, NULL);
+
+             Timestamp timestamp;
+             timestamp.set_seconds(tv.tv_sec);
+             timestamp.set_nanos(tv.tv_usec * 1000);
+
+         Example 3: Compute Timestamp from Win32 `GetSystemTimeAsFileTime()`.
+
+             FILETIME ft;
+             GetSystemTimeAsFileTime(&ft);
+             UINT64 ticks = (((UINT64)ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
+
+             // A Windows tick is 100 nanoseconds. Windows epoch 1601-01-01T00:00:00Z
+             // is 11644473600 seconds before Unix epoch 1970-01-01T00:00:00Z.
+             Timestamp timestamp;
+             timestamp.set_seconds((INT64) ((ticks / 10000000) - 11644473600LL));
+             timestamp.set_nanos((INT32) ((ticks % 10000000) * 100));
+
+         Example 4: Compute Timestamp from Java `System.currentTimeMillis()`.
+
+             long millis = System.currentTimeMillis();
+
+             Timestamp timestamp = Timestamp.newBuilder().setSeconds(millis / 1000)
+                 .setNanos((int) ((millis % 1000) * 1000000)).build();
+
+         Example 5: Compute Timestamp from Java `Instant.now()`.
+
+             Instant now = Instant.now();
+
+             Timestamp timestamp =
+                 Timestamp.newBuilder().setSeconds(now.getEpochSecond())
+                     .setNanos(now.getNano()).build();
+
+         Example 6: Compute Timestamp from current time in Python.
+
+             timestamp = Timestamp()
+             timestamp.GetCurrentTime()
+
+         # JSON Mapping
+
+         In JSON format, the Timestamp type is encoded as a string in the
+         [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt) format. That is, the
+         format is "{year}-{month}-{day}T{hour}:{min}:{sec}[.{frac_sec}]Z"
+         where {year} is always expressed using four digits while {month}, {day},
+         {hour}, {min}, and {sec} are zero-padded to two digits each. The fractional
+         seconds, which can go up to 9 digits (i.e. up to 1 nanosecond resolution),
+         are optional. The "Z" suffix indicates the timezone ("UTC"); the timezone
+         is required. A proto3 JSON serializer should always use UTC (as indicated by
+         "Z") when printing the Timestamp type and a proto3 JSON parser should be
+         able to accept both UTC and other timezones (as indicated by an offset).
+
+         For example, "2017-01-15T01:30:15.01Z" encodes 15.01 seconds past
+         01:30 UTC on January 15, 2017.
+
+         In JavaScript, one can convert a Date object to this format using the
+         standard
+         [toISOString()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toISOString)
+         method. In Python, a standard `datetime.datetime` object can be converted
+         to this format using
+         [`strftime`](https://docs.python.org/2/library/time.html#time.strftime) with
+         the time format spec '%Y-%m-%dT%H:%M:%S.%fZ'. Likewise, in Java, one can use
+         the Joda Time's [`ISODateTimeFormat.dateTime()`](
+         http://joda-time.sourceforge.net/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime()
+         ) to obtain a formatter capable of generating timestamps in this format.
+    google.protobuf.Value:
+      oneOf:
+        - type: "null"
+        - type: number
+        - type: string
+        - type: boolean
+        - type: array
+        - type: object
+          additionalProperties: true
+      description: |-
+        `Value` represents a dynamically typed value which can be either
+         null, a number, a string, a boolean, a recursive struct value, or a
+         list of values. A producer of value is expected to set one of these
+         variants. Absence of any variant indicates an error.
+
+         The JSON representation for `Value` is JSON value.
+    stevy.v1.AttemptError:
+      type: object
+      properties:
+        attempt:
+          type: integer
+          title: attempt
+          format: int32
+        error:
+          type: string
+          title: error
+        at:
+          title: at
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+      title: AttemptError
+      additionalProperties: false
+    stevy.v1.BackoffOptions:
+      type: object
+      properties:
+        type:
+          type: string
+          title: type
+          enum:
+            - fixed
+            - exponential
+        delay:
+          type:
+            - integer
+            - string
+          title: delay
+          minimum: 0
+          format: int64
+        jitter:
+          type: boolean
+          title: jitter
+      title: BackoffOptions
+      additionalProperties: false
+    stevy.v1.BatchGetJobStatusesRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+          title: ids
+      title: BatchGetJobStatusesRequest
+      additionalProperties: false
+    stevy.v1.BatchGetJobStatusesResponse:
+      type: object
+      properties:
+        statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/stevy.v1.BatchGetJobStatusesResponse.JobStatusEntry'
+          title: statuses
+      title: BatchGetJobStatusesResponse
+      additionalProperties: false
+    stevy.v1.BatchGetJobStatusesResponse.JobStatusEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        status:
+          type: string
+          title: status
+          enum:
+            - pending
+            - scheduled
+            - available
+            - running
+            - retryable
+            - cancelled
+            - discarded
+            - completed
+        progress:
+          type: integer
+          title: progress
+          maximum: 100
+          minimum: 0
+          format: int32
+        error:
+          type:
+            - string
+            - "null"
+          title: error
+      title: JobStatusEntry
+      additionalProperties: false
+    stevy.v1.CancelJobRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+      title: CancelJobRequest
+      additionalProperties: false
+    stevy.v1.CancelJobResponse:
+      type: object
+      title: CancelJobResponse
+      additionalProperties: false
+    stevy.v1.ClaimJobRequest:
+      type: object
+      properties:
+        queue:
+          type: string
+          title: queue
+      title: ClaimJobRequest
+      additionalProperties: false
+    stevy.v1.ClaimJobResponse:
+      type: object
+      properties:
+        job:
+          title: job
+          $ref: '#/components/schemas/stevy.v1.Job'
+      title: ClaimJobResponse
+      additionalProperties: false
+    stevy.v1.CompleteJobRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        result:
+          title: result
+          $ref: '#/components/schemas/google.protobuf.Struct'
+      title: CompleteJobRequest
+      additionalProperties: false
+    stevy.v1.CompleteJobResponse:
+      type: object
+      title: CompleteJobResponse
+      additionalProperties: false
+    stevy.v1.CreateJobRequest:
+      type: object
+      properties:
+        queue:
+          type: string
+          title: queue
+        kind:
+          type: string
+          title: kind
+        payload:
+          title: payload
+          $ref: '#/components/schemas/google.protobuf.Struct'
+        options:
+          oneOf:
+            - $ref: '#/components/schemas/stevy.v1.JobOptions'
+            - type: "null"
+          title: options
+      title: CreateJobRequest
+      additionalProperties: false
+    stevy.v1.CreateJobResponse:
+      type: object
+      properties:
+        job:
+          title: job
+          $ref: '#/components/schemas/stevy.v1.Job'
+      title: CreateJobResponse
+      additionalProperties: false
+    stevy.v1.FailJobRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        error:
+          type: string
+          title: error
+      title: FailJobRequest
+      additionalProperties: false
+    stevy.v1.FailJobResponse:
+      type: object
+      title: FailJobResponse
+      additionalProperties: false
+    stevy.v1.GetJobRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+      title: GetJobRequest
+      additionalProperties: false
+    stevy.v1.GetJobResponse:
+      type: object
+      properties:
+        job:
+          title: job
+          $ref: '#/components/schemas/stevy.v1.Job'
+      title: GetJobResponse
+      additionalProperties: false
+    stevy.v1.GetJobStatusRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+      title: GetJobStatusRequest
+      additionalProperties: false
+    stevy.v1.GetJobStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          title: status
+          enum:
+            - pending
+            - scheduled
+            - available
+            - running
+            - retryable
+            - cancelled
+            - discarded
+            - completed
+        progress:
+          type: integer
+          title: progress
+          maximum: 100
+          minimum: 0
+          format: int32
+        error:
+          type:
+            - string
+            - "null"
+          title: error
+      title: GetJobStatusResponse
+      additionalProperties: false
+    stevy.v1.GetQueueRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+      title: GetQueueRequest
+      additionalProperties: false
+    stevy.v1.GetQueueResponse:
+      type: object
+      properties:
+        pending:
+          type: integer
+          title: pending
+          format: int32
+        scheduled:
+          type: integer
+          title: scheduled
+          format: int32
+        available:
+          type: integer
+          title: available
+          format: int32
+        running:
+          type: integer
+          title: running
+          format: int32
+        retryable:
+          type: integer
+          title: retryable
+          format: int32
+        cancelled:
+          type: integer
+          title: cancelled
+          format: int32
+        discarded:
+          type: integer
+          title: discarded
+          format: int32
+        completed:
+          type: integer
+          title: completed
+          format: int32
+        paused:
+          type: boolean
+          title: paused
+      title: GetQueueResponse
+      additionalProperties: false
+    stevy.v1.HeartbeatJobRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+      title: HeartbeatJobRequest
+      additionalProperties: false
+    stevy.v1.HeartbeatJobResponse:
+      type: object
+      title: HeartbeatJobResponse
+      additionalProperties: false
+    stevy.v1.Job:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        queue:
+          type: string
+          title: queue
+        kind:
+          type: string
+          title: kind
+        payload:
+          title: payload
+          $ref: '#/components/schemas/google.protobuf.Struct'
+        status:
+          type: string
+          title: status
+          enum:
+            - pending
+            - scheduled
+            - available
+            - running
+            - retryable
+            - cancelled
+            - discarded
+            - completed
+        attempt:
+          type: integer
+          title: attempt
+          format: int32
+        progress:
+          type: integer
+          title: progress
+          maximum: 100
+          minimum: 0
+          format: int32
+        result:
+          title: result
+          $ref: '#/components/schemas/google.protobuf.Struct'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/stevy.v1.AttemptError'
+          title: errors
+        created_at:
+          title: created_at
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        attempted_at:
+          oneOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+            - type: "null"
+          title: attempted_at
+        scheduled_at:
+          oneOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+            - type: "null"
+          title: scheduled_at
+        finalized_at:
+          oneOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+            - type: "null"
+          title: finalized_at
+      title: Job
+      additionalProperties: false
+    stevy.v1.JobOptions:
+      type: object
+      properties:
+        pending:
+          type: boolean
+          title: pending
+        delay:
+          type:
+            - integer
+            - string
+          title: delay
+          minimum: 0
+          format: int64
+          description: milliseconds
+        attempts:
+          type: integer
+          title: attempts
+          minimum: 0
+          format: int32
+        priority:
+          type: integer
+          title: priority
+          format: int32
+        backoff:
+          title: backoff
+          $ref: '#/components/schemas/stevy.v1.BackoffOptions'
+      title: JobOptions
+      additionalProperties: false
+    stevy.v1.ListJobsRequest:
+      type: object
+      properties:
+        status:
+          type:
+            - string
+            - "null"
+          title: status
+        queue:
+          type:
+            - string
+            - "null"
+          title: queue
+        limit:
+          type:
+            - integer
+            - "null"
+          title: limit
+          maximum: 1000
+          minimum: 1
+          format: int32
+        offset:
+          type:
+            - integer
+            - "null"
+          title: offset
+          minimum: 0
+          format: int32
+      title: ListJobsRequest
+      additionalProperties: false
+    stevy.v1.ListJobsResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/stevy.v1.Job'
+          title: jobs
+      title: ListJobsResponse
+      additionalProperties: false
+    stevy.v1.PromoteJobRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+      title: PromoteJobRequest
+      additionalProperties: false
+    stevy.v1.PromoteJobResponse:
+      type: object
+      title: PromoteJobResponse
+      additionalProperties: false
+    stevy.v1.SetJobProgressRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        progress:
+          type: integer
+          title: progress
+          maximum: 100
+          minimum: 0
+          format: int32
+      title: SetJobProgressRequest
+      additionalProperties: false
+    stevy.v1.SetJobProgressResponse:
+      type: object
+      title: SetJobProgressResponse
+      additionalProperties: false
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+security:
+  - BearerAuth: []

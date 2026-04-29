@@ -1,0 +1,76 @@
+{{define "content"}}
+<div class="card">
+  <h2>Create Worker</h2>
+  <div class="row">
+    <input id="workerName" placeholder="Name (e.g. 'translator-prod-1')">
+    <button onclick="createWorker()">Create</button>
+  </div>
+  <div id="newWorker"></div>
+</div>
+
+<div class="card">
+  <h2>Workers</h2>
+  <table id="workersTable" class="compact">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Created by</th>
+        <th>Created</th>
+        <th>Last seen</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+  async function loadWorkers() {
+    const res = await fetch('/workers/list');
+    const workers = await res.json() || [];
+    const tbody = document.querySelector('#workersTable tbody');
+    tbody.innerHTML = workers.map(w => `
+      <tr>
+        <td>${escape(w.name)}</td>
+        <td>${escape(w.created_by)}</td>
+        <td>${escape(w.created_at)}</td>
+        <td>${w.last_seen_at ? escape(w.last_seen_at) : '<span class="muted">never</span>'}</td>
+        <td>${w.last_seen_at
+          ? (w.active ? '<span class="badge badge-completed">active</span>' : '<span class="badge badge-cancelled">offline</span>')
+          : '<span class="muted">—</span>'}</td>
+        <td><button class="danger" onclick="deleteWorker(${w.id})">Delete</button></td>
+      </tr>
+    `).join('') || '<tr><td colspan="6" style="color:#57606a">No workers yet.</td></tr>';
+  }
+
+  async function createWorker() {
+    const name = document.getElementById('workerName').value.trim();
+    if (!name) { alert('Name is required'); return; }
+    const res = await fetch('/workers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) { alert('Error: ' + await res.text()); return; }
+    const data = await res.json();
+    document.getElementById('newWorker').innerHTML = `
+      <div class="plaintext-key">
+        <strong>Save this worker key now — it won't be shown again:</strong><br>
+        <code>${escape(data.key)}</code>
+      </div>`;
+    document.getElementById('workerName').value = '';
+    loadWorkers();
+  }
+
+  async function deleteWorker(id) {
+    if (!confirm('Delete this worker?')) return;
+    await fetch('/workers/' + id, { method: 'DELETE' });
+    loadWorkers();
+  }
+
+  function escape(s) { return String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+  loadWorkers();
+</script>
+{{end}}

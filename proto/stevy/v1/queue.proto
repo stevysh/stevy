@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package stevy.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/stevysh/stevy/gen/stevy/v1;stevyv1";
+
+service QueueService {
+  rpc GetQueue(GetQueueRequest) returns (GetQueueResponse) {
+    option (google.api.http) = {get: "/v1/queues/{name}"};
+  }
+}
+
+message GetQueueRequest {
+  string name = 1;
+}
+
+message GetQueueResponse {
+  int32 pending = 1;
+  int32 scheduled = 2;
+  int32 available = 3;
+  int32 running = 4;
+  int32 retryable = 5;
+  int32 cancelled = 6;
+  int32 discarded = 7;
+  int32 completed = 8;
+  bool paused = 9;
+}

@@ -1,0 +1,47 @@
+{{define "content"}}
+<div class="card">
+  <h2>Queues</h2>
+  {{if .Queues}}
+  <table class="compact">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Pending</th>
+        <th>Scheduled</th>
+        <th>Available</th>
+        <th>Running</th>
+        <th>Retryable</th>
+        <th>Cancelled</th>
+        <th>Discarded</th>
+        <th>Completed</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Queues}}
+      <tr>
+        <td><code>{{.Name}}</code>{{if .Paused}} <span class="badge badge-cancelled">paused</span>{{end}}</td>
+        <td>{{.Pending}}</td>
+        <td>{{.Scheduled}}</td>
+        <td>{{.Available}}</td>
+        <td>{{.Running}}</td>
+        <td>{{.Retryable}}</td>
+        <td>{{.Cancelled}}</td>
+        <td>{{.Discarded}}</td>
+        <td>{{.Completed}}</td>
+        <td>
+          {{if .Paused}}
+          <form class="pause-form" method="post" action="/queues/{{.Name}}/resume"><button class="secondary">Resume</button></form>
+          {{else}}
+          <form class="pause-form" method="post" action="/queues/{{.Name}}/pause"><button class="secondary">Pause</button></form>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">No queues yet.</p>
+  {{end}}
+</div>
+{{end}}

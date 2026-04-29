@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+import "gnostic/openapi/v3/annotations.proto";
+
+option go_package = "github.com/stevysh/stevy/gen/stevy/v1;stevyv1";
+option (gnostic.openapi.v3.document) = {
+  info: {
+    title: "Stevy API"
+    version: "1.0.0"
+  }
+  servers: {
+    url: "https://stevy.example.com"
+    description: "Your Stevy instance"
+  }
+  components: {
+    security_schemes: {
+      additional_properties: [
+        {
+          name: "BearerAuth"
+          value: {
+            security_scheme: {
+              type: "http"
+              scheme: "bearer"
+              bearer_format: "opaque"
+            }
+          }
+        }
+      ]
+    }
+  }
+  security: {
+    additional_properties: {
+      name: "BearerAuth"
+      value: {}
+    }
+  }
+};
