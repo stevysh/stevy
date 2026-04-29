@@ -10,3 +10,5 @@ gen/
 # Build artefacts
 /queue
 /bin/
+
+openapi.yaml
