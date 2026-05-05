@@ -2,28 +2,74 @@ syntax = "proto3";
 
 package stevy.v1;
 
+import "buf/validate/validate.proto";
 import "google/api/annotations.proto";
 
 option go_package = "github.com/stevysh/stevy/gen/stevy/v1;stevyv1";
 
-service QueueService {
-  rpc GetQueue(GetQueueRequest) returns (GetQueueResponse) {
-    option (google.api.http) = {get: "/v1/queues/{name}"};
-  }
+message QueueStats {
+  int32 pending = 2;
+  int32 scheduled = 3;
+  int32 available = 4;
+  int32 running = 5;
+  int32 retryable = 6;
+  int32 cancelled = 7;
+  int32 discarded = 8;
+  int32 completed = 9;
+}
+
+message Queue {
+  string name = 1 [(buf.validate.field).required = true];
+  bool paused = 2;
+  QueueStats stats = 3;
 }
 
 message GetQueueRequest {
-  string name = 1;
+  string name = 1 [(buf.validate.field).required = true];
 }
 
 message GetQueueResponse {
-  int32 pending = 1;
-  int32 scheduled = 2;
-  int32 available = 3;
-  int32 running = 4;
-  int32 retryable = 5;
-  int32 cancelled = 6;
-  int32 discarded = 7;
-  int32 completed = 8;
-  bool paused = 9;
+  Queue queue = 1 [(buf.validate.field).required = true];
+}
+
+message ListQueuesRequest {}
+
+message ListQueuesResponse {
+  repeated Queue queues = 1;
+}
+
+message PauseQueueRequest {
+  string name = 1 [(buf.validate.field).required = true];
+}
+message PauseQueueResponse {}
+
+message ResumeQueueRequest {
+  string name = 1 [(buf.validate.field).required = true];
+}
+message ResumeQueueResponse {}
+
+service QueueService {
+  rpc ListQueues(ListQueuesRequest) returns (ListQueuesResponse) {
+    option (google.api.http) = {
+      get: "/v1/queues"
+    };
+  }
+  rpc GetQueue(GetQueueRequest) returns (GetQueueResponse) {
+    option (google.api.http) = {
+      get: "/v1/queues/{name}"
+      response_body: "queue"
+    };
+  }
+  rpc PauseQueue(PauseQueueRequest) returns (PauseQueueResponse) {
+    option (google.api.http) = {
+      post: "/v1/queues/{name}/pause"
+      body: "*"
+    };
+  }
+  rpc ResumeQueue(ResumeQueueRequest) returns (ResumeQueueResponse) {
+    option (google.api.http) = {
+      post: "/v1/queues/{name}/resume"
+      body: "*"
+    };
+  }
 }

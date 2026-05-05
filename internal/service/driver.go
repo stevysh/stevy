@@ -42,7 +42,6 @@ type CreateOpts struct {
 	Pending     bool // insert in 'pending' status; caller must PromoteJob to release
 }
 
-
 type QueueInfo struct {
 	CountsByStatus map[string]int32
 	Paused         bool
@@ -59,18 +58,16 @@ type Driver interface {
 	ClaimJob(ctx context.Context, queueName string, workerID int64) (*JobRow, error)
 	CompleteJob(ctx context.Context, id string, resultJSON []byte) error
 	FailJob(ctx context.Context, id string, errMsg string, backoffMs int) error
-	HeartbeatJob(ctx context.Context, id string) error
+	HeartbeatJob(ctx context.Context, id string, progress *int) error
 	CancelJob(ctx context.Context, id string) error
 	PromoteJob(ctx context.Context, id string) error
 	GetJob(ctx context.Context, id string) (*JobRow, error)
 	GetJobStatus(ctx context.Context, id string) (*JobStatusRow, error)
-	BatchGetJobStatuses(ctx context.Context, ids []string) ([]JobStatusRow, error)
-	SetJobProgress(ctx context.Context, id string, progress int) error
 	QueueInfo(ctx context.Context, queueName string) (*QueueInfo, error)
 	ListQueues(ctx context.Context) ([]QueueSummary, error)
 	PauseQueue(ctx context.Context, name string) error
 	ResumeQueue(ctx context.Context, name string) error
-	ListJobs(ctx context.Context, queue, status string, limit, offset int) ([]JobRow, error)
+	ListJobs(ctx context.Context, queue, status string, pageSize int, afterID string, afterCreatedAt *time.Time) ([]JobRow, error)
 	JobCountsByStatus(ctx context.Context) (map[string]int32, error)
 	PromoteScheduledJobs(ctx context.Context, limit int) (int64, error)
 	FailExpiredJobs(ctx context.Context, limit int) (int64, error)

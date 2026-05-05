@@ -119,7 +119,7 @@ func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 		Statuses:     allStatuses,
 	}
 
-	if jobs, err := h.driver.ListJobs(r.Context(), "", status, 50, 0); err == nil {
+	if jobs, err := h.driver.ListJobs(r.Context(), "", status, 50, "", nil); err == nil {
 		for _, j := range jobs {
 			data.Jobs = append(data.Jobs, jobListRow{
 				ID:        j.ID,

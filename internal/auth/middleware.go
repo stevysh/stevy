@@ -27,12 +27,11 @@ func RequireSession(sessions *SessionManager, next http.Handler) http.Handler {
 
 // workerMethods are callable only with the Worker auth scheme.
 var workerMethods = map[string]bool{
-	"/stevy.v1.JobService/ClaimJob":           true,
-	"/stevy.v1.JobService/CompleteJob":       true,
-	"/stevy.v1.JobService/FailJob":           true,
-	"/stevy.v1.JobService/SetJobProgress": true,
+	"/stevy.v1.JobService/ClaimJob":     true,
+	"/stevy.v1.JobService/CompleteJob":  true,
+	"/stevy.v1.JobService/FailJob":      true,
+	"/stevy.v1.JobService/HeartbeatJob": true,
 }
-
 
 // APIKeyInterceptor enforces API-key auth on Connect RPC calls.
 // stv_ prefix → client key → api_keys table → client methods.

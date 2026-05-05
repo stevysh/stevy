@@ -174,13 +174,20 @@ func (d *SQLiteDriver) FailJob(ctx context.Context, id string, errMsg string, ba
 	return err
 }
 
-func (d *SQLiteDriver) HeartbeatJob(ctx context.Context, id string) error {
+func (d *SQLiteDriver) HeartbeatJob(ctx context.Context, id string, progress *int) error {
 	lockSec := int64(d.lockDuration.Seconds())
-	res, err := d.db.ExecContext(ctx, `
+	q := `
 		UPDATE jobs
-		SET lock_expires_at = datetime('now', '+' || ? || ' seconds')
-		WHERE id = ? AND status = 'running'
-	`, lockSec, id)
+		SET lock_expires_at = datetime('now', '+' || ? || ' seconds')`
+	args := []any{lockSec}
+	if progress != nil {
+		q += `, progress = ?`
+		args = append(args, *progress)
+	}
+	q += ` WHERE id = ? AND status = 'running'`
+	args = append(args, id)
+
+	res, err := d.db.ExecContext(ctx, q, args...)
 	if err != nil {
 		return err
 	}
@@ -283,44 +290,6 @@ func (d *SQLiteDriver) GetJobStatus(ctx context.Context, id string) (*JobStatusR
 		s.ErrorsJSON = []byte(errorsJSON.String)
 	}
 	return &s, nil
-}
-
-func (d *SQLiteDriver) BatchGetJobStatuses(ctx context.Context, ids []string) ([]JobStatusRow, error) {
-	if len(ids) == 0 {
-		return nil, nil
-	}
-	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
-	args := make([]any, len(ids))
-	for i, v := range ids {
-		args[i] = v
-	}
-
-	rows, err := d.db.QueryContext(ctx, `
-		SELECT id, status, progress, errors FROM jobs WHERE id IN (`+placeholders+`)
-	`, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []JobStatusRow
-	for rows.Next() {
-		var s JobStatusRow
-		var errorsJSON sql.NullString
-		if err := rows.Scan(&s.ID, &s.Status, &s.Progress, &errorsJSON); err != nil {
-			return nil, err
-		}
-		if errorsJSON.Valid {
-			s.ErrorsJSON = []byte(errorsJSON.String)
-		}
-		out = append(out, s)
-	}
-	return out, nil
-}
-
-func (d *SQLiteDriver) SetJobProgress(ctx context.Context, id string, progress int) error {
-	_, err := d.db.ExecContext(ctx, `UPDATE jobs SET progress = ? WHERE id = ?`, progress, id)
-	return err
 }
 
 func (d *SQLiteDriver) QueueInfo(ctx context.Context, name string) (*QueueInfo, error) {
@@ -427,19 +396,11 @@ func (d *SQLiteDriver) PromoteScheduledJobs(ctx context.Context, limit int) (int
 	return n, nil
 }
 
-func (d *SQLiteDriver) ListJobs(ctx context.Context, queue, status string, limit, offset int) ([]JobRow, error) {
-	if limit <= 0 {
-		limit = 50
+func (d *SQLiteDriver) ListJobs(ctx context.Context, queue, status string, pageSize int, afterID string, afterCreatedAt *time.Time) ([]JobRow, error) {
+	if pageSize <= 0 {
+		pageSize = 50
 	}
-	q := `
-		SELECT id, queue, kind, status, priority, attempt, max_attempts, progress,
-		       payload, metadata, result, errors,
-		       strftime('%Y-%m-%d %H:%M:%S', created_at),
-		       strftime('%Y-%m-%d %H:%M:%S', scheduled_at),
-		       strftime('%Y-%m-%d %H:%M:%S', attempted_at),
-		       strftime('%Y-%m-%d %H:%M:%S', finalized_at)
-		FROM jobs`
-	args := []any{}
+	var args []any
 	var conds []string
 	if queue != "" {
 		conds = append(conds, "queue = ?")
@@ -449,11 +410,23 @@ func (d *SQLiteDriver) ListJobs(ctx context.Context, queue, status string, limit
 		conds = append(conds, "status = ?")
 		args = append(args, status)
 	}
+	if afterCreatedAt != nil {
+		conds = append(conds, "(created_at < ? OR (created_at = ? AND id < ?))")
+		t := afterCreatedAt.UTC().Format(sqliteTimeFmt)
+		args = append(args, t, t, afterID)
+	}
+	q := `SELECT id, queue, kind, status, priority, attempt, max_attempts, progress,
+		       payload, metadata, result, errors,
+		       strftime('%Y-%m-%d %H:%M:%S', created_at),
+		       strftime('%Y-%m-%d %H:%M:%S', scheduled_at),
+		       strftime('%Y-%m-%d %H:%M:%S', attempted_at),
+		       strftime('%Y-%m-%d %H:%M:%S', finalized_at)
+		FROM jobs`
 	if len(conds) > 0 {
 		q += " WHERE " + strings.Join(conds, " AND ")
 	}
-	q += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
-	args = append(args, limit, offset)
+	q += ` ORDER BY created_at DESC, id DESC LIMIT ?`
+	args = append(args, pageSize)
 
 	rows, err := d.db.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -525,7 +498,7 @@ func scanJobRowSqlite(s sqliteScannable) (*JobRow, error) {
 
 func buildErrorEntry(msg string) string {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	return `{"at":"` + now + `","attempt":0,"error":` + jsonString(msg) + `}`
+	return `{"at":"` + now + `","message":` + jsonString(msg) + `}`
 }
 
 func jsonString(s string) string {
