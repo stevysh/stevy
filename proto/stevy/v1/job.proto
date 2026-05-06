@@ -134,12 +134,12 @@ message ListJobsRequest {
     gte: 1
     lte: 250
   }];
-  optional string after = 4;
+  optional string cursor = 4;
 }
 
 message ListJobsResponse {
   repeated Job jobs = 1;
-  bool has_more = 2;
+  optional string next_cursor = 2;
 }
 
 message GetJobRequest {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,16 +36,13 @@ func (s *JobService) ListJobs(ctx context.Context, req *connect.Request[jobv1.Li
 
 	var afterID string
 	var afterCreatedAt *time.Time
-	if after := req.Msg.GetAfter(); after != "" {
-		row, err := s.driver.GetJob(ctx, after)
+	if cursor := req.Msg.GetCursor(); cursor != "" {
+		id, ca, err := decodeCursor(cursor)
 		if err != nil {
-			if errors.Is(err, ErrNotFound) {
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid after: job %q not found", after))
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid cursor"))
 		}
-		afterID = after
-		afterCreatedAt = &row.CreatedAt
+		afterID = id
+		afterCreatedAt = &ca
 	}
 
 	rows, err := s.driver.ListJobs(ctx, req.Msg.GetQueue(), req.Msg.GetStatus(), limit+1, afterID, afterCreatedAt)
@@ -52,17 +50,19 @@ func (s *JobService) ListJobs(ctx context.Context, req *connect.Request[jobv1.Li
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	hasMore := len(rows) > limit
-	if hasMore {
+	resp := &jobv1.ListJobsResponse{}
+	if len(rows) > limit {
 		rows = rows[:limit]
+		next := encodeCursor(rows[len(rows)-1].ID, rows[len(rows)-1].CreatedAt)
+		resp.NextCursor = &next
 	}
 
-	jobs := make([]*jobv1.Job, 0, len(rows))
+	resp.Jobs = make([]*jobv1.Job, 0, len(rows))
 	for i := range rows {
-		jobs = append(jobs, rowToProto(&rows[i]))
+		resp.Jobs = append(resp.Jobs, rowToProto(&rows[i]))
 	}
 
-	return connect.NewResponse(&jobv1.ListJobsResponse{Jobs: jobs, HasMore: hasMore}), nil
+	return connect.NewResponse(resp), nil
 }
 
 // ─────────────────────────── CreateJob ───────────────────────────
@@ -262,6 +262,28 @@ func (s *JobService) GetJobState(ctx context.Context, req *connect.Request[jobv1
 }
 
 // ─────────────────────────── Helpers ───────────────────────────
+
+type cursorData struct {
+	ID        string    `json:"i"`
+	CreatedAt time.Time `json:"c"`
+}
+
+func encodeCursor(id string, createdAt time.Time) string {
+	b, _ := json.Marshal(cursorData{ID: id, CreatedAt: createdAt})
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+func decodeCursor(cursor string) (id string, createdAt time.Time, err error) {
+	b, err := base64.RawURLEncoding.DecodeString(cursor)
+	if err != nil {
+		return
+	}
+	var d cursorData
+	if err = json.Unmarshal(b, &d); err != nil {
+		return
+	}
+	return d.ID, d.CreatedAt, nil
+}
 
 func rowToProto(row *JobRow) *jobv1.Job {
 	var payloadMap map[string]any

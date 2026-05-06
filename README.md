@@ -88,7 +88,7 @@ The OpenAPI spec is generated at `public/openapi.yaml`.
 
 | Method | Path | RPC |
 |---|---|---|
-| `GET` | `/v1/jobs` | `ListJobs` — supports `?limit=&after=&status=&queue=` |
+| `GET` | `/v1/jobs` | `ListJobs` — supports `?limit=&cursor=&status=&queue=` |
 | `POST` | `/v1/jobs` | `CreateJob` |
 | `GET` | `/v1/jobs/{id}` | `GetJob` |
 | `GET` | `/v1/jobs/{id}/state` | `GetJobState` — lightweight `{status, progress, error}` |
@@ -110,15 +110,16 @@ The OpenAPI spec is generated at `public/openapi.yaml`.
 
 ### Pagination
 
-`ListJobs` uses cursor-based pagination. Pass the last job's `id` from a previous response as `?after=` to get the next page; check `has_more` to know when to stop.
+`ListJobs` uses opaque cursor pagination. Pass the `next_cursor` from a previous response back as `?cursor=` to get the next page. When `next_cursor` is omitted, you've reached the end.
 
 ```bash
 curl "http://localhost:8080/v1/jobs?limit=50" \
   -H "Authorization: Bearer stv_XXXXXX"
-# → { "jobs": [...], "has_more": true }
+# → { "jobs": [...], "next_cursor": "eyJpIjoi..." }
 
-curl "http://localhost:8080/v1/jobs?limit=50&after=<last_job_id>" \
+curl "http://localhost:8080/v1/jobs?limit=50&cursor=eyJpIjoi..." \
   -H "Authorization: Bearer stv_XXXXXX"
+# → { "jobs": [...] }     # next_cursor absent = no more pages
 ```
 
 ## Worker flow
