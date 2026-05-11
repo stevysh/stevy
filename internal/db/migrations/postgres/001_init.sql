@@ -1,6 +1,6 @@
 -- +goose Up
 CREATE TABLE users (
-    id          BIGSERIAL PRIMARY KEY,
+    id          UUID PRIMARY KEY,
     google_id   TEXT NOT NULL UNIQUE,
     email       TEXT NOT NULL,
     name        TEXT NOT NULL,
@@ -8,8 +8,8 @@ CREATE TABLE users (
 );
 
 CREATE TABLE api_keys (
-    id           BIGSERIAL PRIMARY KEY,
-    user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id           UUID PRIMARY KEY,
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     label        TEXT NOT NULL,
     key_hash     TEXT NOT NULL UNIQUE,
     key_prefix   TEXT NOT NULL,
@@ -52,11 +52,11 @@ CREATE TABLE queues (
 );
 
 CREATE TABLE workers (
-    id           BIGSERIAL PRIMARY KEY,
+    id           UUID PRIMARY KEY,
     name         TEXT NOT NULL UNIQUE,
     key_hash     TEXT NOT NULL UNIQUE,
     key_prefix   TEXT NOT NULL,
-    created_by   BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_seen_at TIMESTAMPTZ
 );

@@ -3,7 +3,6 @@ package auth
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/stevysh/stevy/internal/db"
@@ -26,7 +25,7 @@ func (h *APIKeyHandler) RegisterRoutes(mux *http.ServeMux) {
 }
 
 type createKeyResponse struct {
-	ID        int64  `json:"id"`
+	ID        string `json:"id"`
 	Label     string `json:"label"`
 	Key       string `json:"key"`
 	KeyPrefix string `json:"key_prefix"`
@@ -34,7 +33,7 @@ type createKeyResponse struct {
 
 func (h *APIKeyHandler) create(w http.ResponseWriter, r *http.Request) {
 	userID := h.sessions.UserID(r)
-	if userID == 0 {
+	if userID == "" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -65,7 +64,7 @@ func (h *APIKeyHandler) create(w http.ResponseWriter, r *http.Request) {
 
 func (h *APIKeyHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID := h.sessions.UserID(r)
-	if userID == 0 {
+	if userID == "" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -79,12 +78,12 @@ func (h *APIKeyHandler) list(w http.ResponseWriter, r *http.Request) {
 
 func (h *APIKeyHandler) delete(w http.ResponseWriter, r *http.Request) {
 	userID := h.sessions.UserID(r)
-	if userID == 0 {
+	if userID == "" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
+	id := r.PathValue("id")
+	if id == "" {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}

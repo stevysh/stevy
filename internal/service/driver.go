@@ -55,7 +55,7 @@ type QueueSummary struct {
 
 type Driver interface {
 	CreateJob(ctx context.Context, opts CreateOpts) (*JobRow, error)
-	ClaimJob(ctx context.Context, queueName string, workerID int64) (*JobRow, error)
+	ClaimJob(ctx context.Context, queueName string, workerID string) (*JobRow, error)
 	CompleteJob(ctx context.Context, id string, resultJSON []byte) error
 	FailJob(ctx context.Context, id string, errMsg string, backoffMs int) error
 	HeartbeatJob(ctx context.Context, id string, progress *int) error

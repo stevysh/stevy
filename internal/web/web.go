@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -177,7 +176,7 @@ func (h *Handler) WorkersPage(w http.ResponseWriter, r *http.Request) {
 
 // WorkersJSON returns the worker list as JSON for the workers page JS.
 func (h *Handler) WorkersJSON(w http.ResponseWriter, r *http.Request) {
-	if h.sessions.UserID(r) == 0 {
+	if h.sessions.UserID(r) == "" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -187,7 +186,7 @@ func (h *Handler) WorkersJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type row struct {
-		ID         int64  `json:"id"`
+		ID         string `json:"id"`
 		Name       string `json:"name"`
 		CreatedBy  string `json:"created_by"`
 		CreatedAt  string `json:"created_at"`
@@ -215,7 +214,7 @@ func (h *Handler) WorkersJSON(w http.ResponseWriter, r *http.Request) {
 // CreateWorker creates a new worker key and returns the plaintext key once.
 func (h *Handler) CreateWorker(w http.ResponseWriter, r *http.Request) {
 	userID := h.sessions.UserID(r)
-	if userID == 0 {
+	if userID == "" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -244,16 +243,16 @@ func (h *Handler) CreateWorker(w http.ResponseWriter, r *http.Request) {
 // DeleteWorker removes a worker key and its heartbeat row.
 func (h *Handler) DeleteWorker(w http.ResponseWriter, r *http.Request) {
 	userID := h.sessions.UserID(r)
-	if userID == 0 {
+	if userID == "" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	workerIDInt, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
+	workerID := r.PathValue("id")
+	if workerID == "" {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
-	if err := h.db.DeleteWorker(r.Context(), userID, workerIDInt); err != nil {
+	if err := h.db.DeleteWorker(r.Context(), userID, workerID); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -377,7 +376,7 @@ func (h *Handler) RunScheduler(w http.ResponseWriter, r *http.Request) {
 
 // PauseQueue/ResumeQueue toggle a queue's paused state.
 func (h *Handler) PauseQueue(w http.ResponseWriter, r *http.Request) {
-	if h.sessions.UserID(r) == 0 {
+	if h.sessions.UserID(r) == "" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -389,7 +388,7 @@ func (h *Handler) PauseQueue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ResumeQueue(w http.ResponseWriter, r *http.Request) {
-	if h.sessions.UserID(r) == 0 {
+	if h.sessions.UserID(r) == "" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -403,7 +402,7 @@ func (h *Handler) ResumeQueue(w http.ResponseWriter, r *http.Request) {
 // currentUser returns the logged-in user, or nil if not authenticated.
 func (h *Handler) currentUser(r *http.Request) *db.User {
 	userID := h.sessions.UserID(r)
-	if userID == 0 {
+	if userID == "" {
 		return nil
 	}
 	user, err := h.db.GetUserByID(r.Context(), userID)

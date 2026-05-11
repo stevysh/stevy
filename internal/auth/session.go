@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -32,9 +31,8 @@ func NewSessionManager(secret []byte) *SessionManager {
 	return &SessionManager{secret: secret}
 }
 
-func (s *SessionManager) Set(w http.ResponseWriter, userID int64) {
-	idStr := strconv.FormatInt(userID, 10)
-	value := idStr + "." + s.sign(idStr)
+func (s *SessionManager) Set(w http.ResponseWriter, userID string) {
+	value := userID + "." + s.sign(userID)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
@@ -57,20 +55,19 @@ func (s *SessionManager) Clear(w http.ResponseWriter) {
 	})
 }
 
-// UserID returns the authenticated user ID from the request cookie, or 0.
-func (s *SessionManager) UserID(r *http.Request) int64 {
+// UserID returns the authenticated user ID from the request cookie, or "".
+func (s *SessionManager) UserID(r *http.Request) string {
 	c, err := r.Cookie(sessionCookie)
 	if err != nil {
-		return 0
+		return ""
 	}
-	idStr, sig, ok := strings.Cut(c.Value, ".")
+	id, sig, ok := strings.Cut(c.Value, ".")
 	if !ok {
-		return 0
+		return ""
 	}
-	if !hmac.Equal([]byte(sig), []byte(s.sign(idStr))) {
-		return 0
+	if !hmac.Equal([]byte(sig), []byte(s.sign(id))) {
+		return ""
 	}
-	id, _ := strconv.ParseInt(idStr, 10, 64)
 	return id
 }
 
@@ -82,24 +79,24 @@ func (s *SessionManager) sign(data string) string {
 
 // Context helpers for API-key middleware → RPC handlers.
 
-func ContextWithUserID(ctx context.Context, id int64) context.Context {
+func ContextWithUserID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, userIDKey, id)
 }
 
-func UserIDFromContext(ctx context.Context) int64 {
-	if v, ok := ctx.Value(userIDKey).(int64); ok {
+func UserIDFromContext(ctx context.Context) string {
+	if v, ok := ctx.Value(userIDKey).(string); ok {
 		return v
 	}
-	return 0
+	return ""
 }
 
-func ContextWithWorkerID(ctx context.Context, id int64) context.Context {
+func ContextWithWorkerID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, workerIDKey, id)
 }
 
-func WorkerIDFromContext(ctx context.Context) int64 {
-	if v, ok := ctx.Value(workerIDKey).(int64); ok {
+func WorkerIDFromContext(ctx context.Context) string {
+	if v, ok := ctx.Value(workerIDKey).(string); ok {
 		return v
 	}
-	return 0
+	return ""
 }

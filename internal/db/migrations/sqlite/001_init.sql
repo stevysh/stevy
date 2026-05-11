@@ -1,6 +1,6 @@
 -- +goose Up
 CREATE TABLE users (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    id          TEXT PRIMARY KEY,
     google_id   TEXT NOT NULL UNIQUE,
     email       TEXT NOT NULL,
     name        TEXT NOT NULL,
@@ -8,8 +8,8 @@ CREATE TABLE users (
 );
 
 CREATE TABLE api_keys (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id           TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     label        TEXT NOT NULL,
     key_hash     TEXT NOT NULL UNIQUE,
     key_prefix   TEXT NOT NULL,
@@ -52,11 +52,11 @@ CREATE TABLE queues (
 );
 
 CREATE TABLE workers (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    id           TEXT PRIMARY KEY,
     name         TEXT NOT NULL UNIQUE,
     key_hash     TEXT NOT NULL UNIQUE,
     key_prefix   TEXT NOT NULL,
-    created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_by   TEXT REFERENCES users(id) ON DELETE SET NULL,
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_seen_at DATETIME
 );

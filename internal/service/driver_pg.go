@@ -72,7 +72,7 @@ func (d *PGDriver) CreateJob(ctx context.Context, o CreateOpts) (*JobRow, error)
 	return row, err
 }
 
-func (d *PGDriver) ClaimJob(ctx context.Context, queue string, workerID int64) (*JobRow, error) {
+func (d *PGDriver) ClaimJob(ctx context.Context, queue string, workerID string) (*JobRow, error) {
 	if _, err := d.pool.Exec(ctx, `
 		UPDATE workers SET last_seen_at = NOW() WHERE id = $1
 	`, workerID); err != nil {
