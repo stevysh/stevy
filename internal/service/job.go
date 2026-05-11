@@ -342,6 +342,6 @@ func mapErr(err error, op string, id string) error {
 	}
 }
 
-func workerIDFromCtx(ctx context.Context) int64 {
+func workerIDFromCtx(ctx context.Context) string {
 	return auth.WorkerIDFromContext(ctx)
 }

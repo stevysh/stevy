@@ -13,7 +13,7 @@ import (
 // RequireSession wraps an HTTP handler, returning 302 → / if no session.
 func RequireSession(sessions *SessionManager, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if sessions.UserID(r) != 0 {
+		if sessions.UserID(r) != "" {
 			next.ServeHTTP(w, r)
 			return
 		}

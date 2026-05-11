@@ -92,7 +92,7 @@ func (d *SQLiteDriver) CreateJob(ctx context.Context, o CreateOpts) (*JobRow, er
 	return row, err
 }
 
-func (d *SQLiteDriver) ClaimJob(ctx context.Context, queue string, workerID int64) (*JobRow, error) {
+func (d *SQLiteDriver) ClaimJob(ctx context.Context, queue string, workerID string) (*JobRow, error) {
 	if _, err := d.db.ExecContext(ctx, `
 		UPDATE workers SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?
 	`, workerID); err != nil {
