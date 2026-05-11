@@ -12,9 +12,7 @@ Self-hosted job queue service with multi-protocol API (gRPC, gRPC-Web, Connect, 
 | `ListJobs` | `GET` | `/v1/jobs` |
 | `GetJob` | `GET` | `/v1/jobs/{id}` |
 | `GetJobStatus` | `GET` | `/v1/jobs/{id}/status` |
-| `BatchGetJobStatuses` | `GET` | `/v1/jobs/statuses` |
-| `SetJobProgress` | `PATCH` | `/v1/jobs/{id}/progress` |
-| `ClaimJob` | `POST` | `/v1/queues/{queue}/claim` |
+| `ClaimJob` | `POST` | `/v1/jobs/claim` |
 | `CompleteJob` | `POST` | `/v1/jobs/{id}/complete` |
 | `FailJob` | `POST` | `/v1/jobs/{id}/fail` |
 | `HeartbeatJob` | `POST` | `/v1/jobs/{id}/heartbeat` |
@@ -26,6 +24,8 @@ Self-hosted job queue service with multi-protocol API (gRPC, gRPC-Web, Connect, 
 | RPC | Method | Path |
 |---|---|---|
 | `GetQueue` | `GET` | `/v1/queues/{name}` |
+| `PauseQueue` | `POST` | `/v1/queues/{name}/pause` |
+| `ResumeQueue` | `POST` | `/v1/queues/{name}/resume` |
 
 ## Links
 

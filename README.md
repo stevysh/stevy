@@ -65,7 +65,7 @@ All RPC endpoints require `Authorization: Bearer <key>`. Two key types:
 | Prefix | Issued from | Allowed RPCs |
 |---|---|---|
 | `stv_` | Dashboard → API Keys | All job and queue RPCs |
-| `stw_` | Dashboard → Workers | `ClaimJob`, `CompleteJob`, `FailJob`, `HeartbeatJob`, `SetJobProgress` |
+| `stw_` | Dashboard → Workers | `ClaimJob`, `CompleteJob`, `FailJob`, `HeartbeatJob` |
 
 Plaintext key shown once on creation — only the SHA-256 hash is stored.
 
@@ -80,35 +80,112 @@ A single endpoint serves all protocols via [vanguard-go](https://github.com/conn
 | Connect | HTTP/1.1 or HTTP/2 |
 | REST | HTTP/1.1 or HTTP/2 |
 
+The OpenAPI spec is generated at `public/openapi.yaml`.
+
+## REST API
+
+### Jobs
+
+| Method | Path | RPC |
+|---|---|---|
+| `GET` | `/v1/jobs` | `ListJobs` — supports `?status=&queue=&limit=&after=` |
+| `POST` | `/v1/jobs` | `CreateJob` |
+| `GET` | `/v1/jobs/{id}` | `GetJob` |
+| `GET` | `/v1/jobs/{id}/state` | `GetJobState` — lightweight `{status, progress, error}` |
+| `POST` | `/v1/jobs/claim` | `ClaimJob` |
+| `POST` | `/v1/jobs/{id}/heartbeat` | `HeartbeatJob` — optional `progress` |
+| `POST` | `/v1/jobs/{id}/complete` | `CompleteJob` |
+| `POST` | `/v1/jobs/{id}/fail` | `FailJob` |
+| `POST` | `/v1/jobs/{id}/cancel` | `CancelJob` |
+| `POST` | `/v1/jobs/{id}/promote` | `PromoteJob` — release a `pending` job |
+
+### Queues
+
+| Method | Path | RPC |
+|---|---|---|
+| `GET` | `/v1/queues` | `ListQueues` |
+| `GET` | `/v1/queues/{name}` | `GetQueue` |
+| `POST` | `/v1/queues/{name}/pause` | `PauseQueue` |
+| `POST` | `/v1/queues/{name}/resume` | `ResumeQueue` |
+
+### Pagination
+
+`ListJobs` returns jobs in reverse chronological order by `id`. Job IDs are UUIDv7, so they sort by creation time. To page, pass the last job's `id` from the previous response as `?after=`. When fewer than `limit` jobs come back, you've reached the end.
+
+```bash
+curl "http://localhost:8080/v1/jobs?limit=50" \
+  -H "Authorization: Bearer stv_XXXXXX"
+# → { [..., { "id": "0190f3c2-..." }] }
+
+curl "http://localhost:8080/v1/jobs?limit=50&after=0190f3c2-..." \
+  -H "Authorization: Bearer stv_XXXXXX"
+# → { [...] }
+```
+
 ## Worker flow
 
 ```
-CreateJob  →  ClaimJob  →  (HeartbeatJob loop)  →  CompleteJob | FailJob
-                               (SetJobProgress)
+CreateJob ─→ available ─→ ClaimJob ─→ running ─┬─→ CompleteJob ─→ completed
+                                               │
+                                               ├─→ FailJob ─→ retryable ─→ (backoff) ─→ available
+                                               │                       └─→ discarded (retries exhausted)
+                                               │
+                                               └─→ HeartbeatJob (loop, optional progress)
 ```
 
-Workers must call `HeartbeatJob` at least once every `JOB_LOCK_DURATION` (default `30s`) to
-keep their lock alive. If a worker dies, the scheduler will fail the job automatically on the
-next tick and reschedule it (up to `max_attempts`).
+Workers must call `HeartbeatJob` at least once every `JOB_LOCK_DURATION` (default `30s`) to keep their lock alive. If a worker dies, the scheduler fails the job on the next tick and reschedules it (up to `max_attempts`).
+
+### Worker loop (pseudocode)
+
+```python
+while True:
+    job = claim_job(queue="translate")  # returns null when empty
+    if job is None:
+        sleep(1); continue
+
+    try:
+        for pct in process(job["payload"]):
+            heartbeat_job(job["id"], progress=pct)
+        complete_job(job["id"], result={"...": "..."})
+    except Exception as e:
+        fail_job(job["id"], message=str(e))  # retried until max_attempts
+```
+
+### Examples
 
 ```bash
-# Create a job — REST (client key)
+# Create a job (client key)
 curl -X POST http://localhost:8080/v1/jobs \
   -H "Authorization: Bearer stv_XXXXXX" \
   -H "Content-Type: application/json" \
   -d '{"queue": "translate", "kind": "TranslateDoc", "payload": {"doc_id": "abc"}}'
 
-# Create a job — Connect
-curl -X POST http://localhost:8080/stevy.v1.JobService/CreateJob \
-  -H "Authorization: Bearer stv_XXXXXX" \
+# Claim next job (worker key)
+curl -X POST http://localhost:8080/v1/jobs/claim \
+  -H "Authorization: Bearer stw_XXXXXX" \
   -H "Content-Type: application/json" \
-  -H "Connect-Protocol-Version: 1" \
-  -d '{"queue": "translate", "kind": "TranslateDoc", "payload": {"doc_id": "abc"}}'
+  -d '{"queue": "translate"}'
 
-# Claim next job — REST (worker key)
-curl -X POST http://localhost:8080/v1/queues/translate/claim \
-  -H "Authorization: Bearer stw_XXXXXX"
+# Heartbeat with progress
+curl -X POST http://localhost:8080/v1/jobs/<id>/heartbeat \
+  -H "Authorization: Bearer stw_XXXXXX" \
+  -H "Content-Type: application/json" \
+  -d '{"progress": 50}'
+
+# Complete with a result
+curl -X POST http://localhost:8080/v1/jobs/<id>/complete \
+  -H "Authorization: Bearer stw_XXXXXX" \
+  -H "Content-Type: application/json" \
+  -d '{"result": {"translation": "Bonjour"}}'
+
+# Fail (will retry until max_attempts, then move to discarded)
+curl -X POST http://localhost:8080/v1/jobs/<id>/fail \
+  -H "Authorization: Bearer stw_XXXXXX" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "upstream API returned 500"}'
 ```
+
+Connect and gRPC clients call the same endpoints under `/stevy.v1.JobService/<RPC>` with appropriate protocol headers.
 
 ## Scheduler
 

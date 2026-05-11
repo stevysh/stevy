@@ -21,7 +21,7 @@ CREATE INDEX idx_api_keys_user_id ON api_keys(user_id);
 CREATE INDEX idx_api_keys_key_hash ON api_keys(key_hash);
 
 CREATE TABLE jobs (
-    id           TEXT PRIMARY KEY,
+    id           UUID PRIMARY KEY,
     queue        TEXT NOT NULL,
     kind         TEXT NOT NULL,
     status       TEXT NOT NULL DEFAULT 'available',

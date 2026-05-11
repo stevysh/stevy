@@ -29,16 +29,26 @@ func NewJob(driver Driver) *JobService {
 
 func (s *JobService) ListJobs(ctx context.Context, req *connect.Request[jobv1.ListJobsRequest]) (*connect.Response[jobv1.ListJobsResponse], error) {
 	limit := int(req.Msg.GetLimit())
-	offset := int(req.Msg.GetOffset())
-	rows, err := s.driver.ListJobs(ctx, req.Msg.GetQueue(), req.Msg.GetStatus(), limit, offset)
+	if limit == 0 {
+		limit = 50
+	}
+
+	rows, err := s.driver.ListJobs(ctx, req.Msg.GetQueue(), req.Msg.GetStatus(), limit+1, req.Msg.GetAfter())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	jobs := make([]*jobv1.Job, 0, len(rows))
-	for i := range rows {
-		jobs = append(jobs, rowToProto(&rows[i]))
+
+	resp := &jobv1.ListJobsResponse{}
+	if len(rows) > limit {
+		rows = rows[:limit]
 	}
-	return connect.NewResponse(&jobv1.ListJobsResponse{Jobs: jobs}), nil
+
+	resp.Jobs = make([]*jobv1.Job, 0, len(rows))
+	for i := range rows {
+		resp.Jobs = append(resp.Jobs, rowToProto(&rows[i]))
+	}
+
+	return connect.NewResponse(resp), nil
 }
 
 // ─────────────────────────── CreateJob ───────────────────────────
@@ -123,7 +133,7 @@ func (s *JobService) FailJob(ctx context.Context, req *connect.Request[jobv1.Fai
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	if err := s.driver.FailJob(ctx, id, req.Msg.GetError(), backoffMs); err != nil {
+	if err := s.driver.FailJob(ctx, id, req.Msg.GetMessage(), backoffMs); err != nil {
 		return nil, mapErr(err, "fail", id)
 	}
 	return connect.NewResponse(&jobv1.FailJobResponse{}), nil
@@ -164,7 +174,12 @@ func (s *JobService) HeartbeatJob(ctx context.Context, req *connect.Request[jobv
 	if err != nil {
 		return nil, err
 	}
-	if err := s.driver.HeartbeatJob(ctx, id); err != nil {
+	var progress *int
+	if req.Msg.Progress != nil {
+		v := int(req.Msg.GetProgress())
+		progress = &v
+	}
+	if err := s.driver.HeartbeatJob(ctx, id, progress); err != nil {
 		return nil, mapErr(err, "heartbeat", id)
 	}
 	return connect.NewResponse(&jobv1.HeartbeatJobResponse{}), nil
@@ -210,32 +225,19 @@ func (s *JobService) GetJob(ctx context.Context, req *connect.Request[jobv1.GetJ
 	return connect.NewResponse(&jobv1.GetJobResponse{Job: rowToProto(row)}), nil
 }
 
-// ─────────────────────────── SetJobProgress ───────────────────────────
+// ─────────────────────────── GetJobState ───────────────────────────
 
-func (s *JobService) SetJobProgress(ctx context.Context, req *connect.Request[jobv1.SetJobProgressRequest]) (*connect.Response[jobv1.SetJobProgressResponse], error) {
-	id, err := parseJobID(req.Msg.GetId())
-	if err != nil {
-		return nil, err
-	}
-	if err := s.driver.SetJobProgress(ctx, id, int(req.Msg.GetProgress())); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&jobv1.SetJobProgressResponse{}), nil
-}
-
-// ─────────────────────────── GetJobStatus ───────────────────────────
-
-func (s *JobService) GetJobStatus(ctx context.Context, req *connect.Request[jobv1.GetJobStatusRequest]) (*connect.Response[jobv1.GetJobStatusResponse], error) {
+func (s *JobService) GetJobState(ctx context.Context, req *connect.Request[jobv1.GetJobStateRequest]) (*connect.Response[jobv1.GetJobStateResponse], error) {
 	id, err := parseJobID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
 	row, err := s.driver.GetJobStatus(ctx, id)
 	if err != nil {
-		return nil, mapErr(err, "get-status", id)
+		return nil, mapErr(err, "get-state", id)
 	}
 
-	resp := &jobv1.GetJobStatusResponse{
+	resp := &jobv1.GetJobStateResponse{
 		Status:   row.Status,
 		Progress: int32(row.Progress),
 	}
@@ -245,36 +247,8 @@ func (s *JobService) GetJobStatus(ctx context.Context, req *connect.Request[jobv
 	return connect.NewResponse(resp), nil
 }
 
-// ─────────────────────────── BatchGetJobStatuses ───────────────────────────
-
-func (s *JobService) BatchGetJobStatuses(ctx context.Context, req *connect.Request[jobv1.BatchGetJobStatusesRequest]) (*connect.Response[jobv1.BatchGetJobStatusesResponse], error) {
-	ids := make([]string, 0, len(req.Msg.GetIds()))
-	for _, id := range req.Msg.GetIds() {
-		if id != "" {
-			ids = append(ids, id)
-		}
-	}
-	rows, err := s.driver.BatchGetJobStatuses(ctx, ids)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	entries := make([]*jobv1.BatchGetJobStatusesResponse_JobStatusEntry, 0, len(rows))
-	for _, row := range rows {
-		entry := &jobv1.BatchGetJobStatusesResponse_JobStatusEntry{
-			Id:       row.ID,
-			Status:   row.Status,
-			Progress: int32(row.Progress),
-		}
-		if errMsg := lastError(row.ErrorsJSON); errMsg != "" {
-			entry.Error = &errMsg
-		}
-		entries = append(entries, entry)
-	}
-	return connect.NewResponse(&jobv1.BatchGetJobStatusesResponse{Statuses: entries}), nil
-}
-
 // ─────────────────────────── Helpers ───────────────────────────
+
 
 func rowToProto(row *JobRow) *jobv1.Job {
 	var payloadMap map[string]any
@@ -313,8 +287,7 @@ func rowToProto(row *JobRow) *jobv1.Job {
 func parseAttemptErrors(errorsJSON []byte) []*jobv1.AttemptError {
 	var arr []struct {
 		At      time.Time `json:"at"`
-		Attempt int       `json:"attempt"`
-		Error   string    `json:"error"`
+		Message string    `json:"message"`
 	}
 	if err := json.Unmarshal(errorsJSON, &arr); err != nil || len(arr) == 0 {
 		return nil
@@ -323,8 +296,7 @@ func parseAttemptErrors(errorsJSON []byte) []*jobv1.AttemptError {
 	for i, e := range arr {
 		out[i] = &jobv1.AttemptError{
 			At:      timestamppb.New(e.At),
-			Attempt: int32(e.Attempt),
-			Error:   e.Error,
+			Message: e.Message,
 		}
 	}
 	return out
@@ -348,7 +320,7 @@ func lastError(errorsJSON []byte) string {
 	if err := json.Unmarshal(errorsJSON, &arr); err != nil || len(arr) == 0 {
 		return ""
 	}
-	s, _ := arr[len(arr)-1]["error"].(string)
+	s, _ := arr[len(arr)-1]["message"].(string)
 	return s
 }
 

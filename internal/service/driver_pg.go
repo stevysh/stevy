@@ -7,8 +7,7 @@ import (
 	"strings"
 	"time"
 
-	nanoid "github.com/matoous/go-nanoid/v2"
-
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -52,10 +51,11 @@ func (d *PGDriver) CreateJob(ctx context.Context, o CreateOpts) (*JobRow, error)
 		status = "pending"
 	}
 
-	id, err := nanoid.New()
+	idV7, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
 	}
+	id := idV7.String()
 
 	metadata := o.Metadata
 	if len(metadata) == 0 {
@@ -139,7 +139,7 @@ func (d *PGDriver) FailJob(ctx context.Context, id string, errMsg string, backof
 		        ELSE NOW() + ($3::int || ' milliseconds')::interval
 		    END,
 		    errors = errors || jsonb_build_array(jsonb_build_object(
-		        'at', NOW(), 'attempt', attempt, 'error', $2::text
+		        'at', NOW(), 'message', $2::text
 		    )),
 		    finalized_at = CASE WHEN attempt >= max_attempts THEN NOW() ELSE NULL END
 		WHERE id = $1 AND status = 'running'
@@ -151,13 +151,18 @@ func (d *PGDriver) FailJob(ctx context.Context, id string, errMsg string, backof
 	return err
 }
 
-func (d *PGDriver) HeartbeatJob(ctx context.Context, id string) error {
+func (d *PGDriver) HeartbeatJob(ctx context.Context, id string, progress *int) error {
 	lockMs := d.lockDuration.Milliseconds()
-	tag, err := d.pool.Exec(ctx, `
+	q := `
 		UPDATE jobs
-		SET lock_expires_at = NOW() + ($2::bigint || ' milliseconds')::interval
-		WHERE id = $1 AND status = 'running'
-	`, id, lockMs)
+		SET lock_expires_at = NOW() + ($2::bigint || ' milliseconds')::interval`
+	args := []any{id, lockMs}
+	if progress != nil {
+		q += `, progress = $3`
+		args = append(args, *progress)
+	}
+	q += ` WHERE id = $1 AND status = 'running'`
+	tag, err := d.pool.Exec(ctx, q, args...)
 	if err != nil {
 		return err
 	}
@@ -176,7 +181,7 @@ func (d *PGDriver) FailExpiredJobs(ctx context.Context, limit int) (int64, error
 		SET status = CASE WHEN attempt >= max_attempts THEN 'discarded' ELSE 'retryable' END,
 		    scheduled_at = CASE WHEN attempt >= max_attempts THEN scheduled_at ELSE NOW() END,
 		    errors = errors || jsonb_build_array(jsonb_build_object(
-		        'at', NOW(), 'attempt', attempt, 'error', 'job lock expired'
+		        'at', NOW(), 'message', 'job lock expired'
 		    )),
 		    finalized_at    = CASE WHEN attempt >= max_attempts THEN NOW() ELSE NULL END,
 		    lock_expires_at = NULL
@@ -249,34 +254,6 @@ func (d *PGDriver) GetJobStatus(ctx context.Context, id string) (*JobStatusRow, 
 		return nil, ErrNotFound
 	}
 	return &s, err
-}
-
-func (d *PGDriver) BatchGetJobStatuses(ctx context.Context, ids []string) ([]JobStatusRow, error) {
-	if len(ids) == 0 {
-		return nil, nil
-	}
-	rows, err := d.pool.Query(ctx, `
-		SELECT id, status, progress, errors FROM jobs WHERE id = ANY($1::text[])
-	`, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []JobStatusRow
-	for rows.Next() {
-		var s JobStatusRow
-		if err := rows.Scan(&s.ID, &s.Status, &s.Progress, &s.ErrorsJSON); err != nil {
-			return nil, err
-		}
-		out = append(out, s)
-	}
-	return out, nil
-}
-
-func (d *PGDriver) SetJobProgress(ctx context.Context, id string, progress int) error {
-	_, err := d.pool.Exec(ctx, `UPDATE jobs SET progress = $2 WHERE id = $1`, id, progress)
-	return err
 }
 
 func (d *PGDriver) QueueInfo(ctx context.Context, name string) (*QueueInfo, error) {
@@ -383,29 +360,33 @@ func (d *PGDriver) PromoteScheduledJobs(ctx context.Context, limit int) (int64, 
 	return tag.RowsAffected(), nil
 }
 
-func (d *PGDriver) ListJobs(ctx context.Context, queue, status string, limit, offset int) ([]JobRow, error) {
+func (d *PGDriver) ListJobs(ctx context.Context, queue, status string, limit int, afterID string) ([]JobRow, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	q := `
-		SELECT id, queue, kind, status, priority, attempt, max_attempts, progress,
+	var args []any
+	var conds []string
+	if queue != "" {
+		args = append(args, queue)
+		conds = append(conds, fmt.Sprintf("queue = $%d", len(args)))
+	}
+	if status != "" {
+		args = append(args, status)
+		conds = append(conds, fmt.Sprintf("status = $%d", len(args)))
+	}
+	if afterID != "" {
+		args = append(args, afterID)
+		conds = append(conds, fmt.Sprintf("id < $%d", len(args)))
+	}
+	q := `SELECT id, queue, kind, status, priority, attempt, max_attempts, progress,
 		       payload, metadata, result, errors,
 		       created_at, scheduled_at, attempted_at, finalized_at
 		FROM jobs`
-	args := []any{limit, offset}
-	var conds []string
-	if queue != "" {
-		conds = append(conds, fmt.Sprintf("queue = $%d", len(args)+1))
-		args = append(args, queue)
-	}
-	if status != "" {
-		conds = append(conds, fmt.Sprintf("status = $%d", len(args)+1))
-		args = append(args, status)
-	}
 	if len(conds) > 0 {
 		q += " WHERE " + strings.Join(conds, " AND ")
 	}
-	q += ` ORDER BY created_at DESC LIMIT $1 OFFSET $2`
+	args = append(args, limit)
+	q += fmt.Sprintf(` ORDER BY id DESC LIMIT $%d`, len(args))
 
 	rows, err := d.pool.Query(ctx, q, args...)
 	if err != nil {
