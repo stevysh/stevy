@@ -115,7 +115,7 @@ message ClaimJobRequest {
 }
 
 message ClaimJobResponse {
-  Job job = 1;
+  Job job = 1 [(buf.validate.field).required = true];
 }
 
 message CompleteJobRequest {
