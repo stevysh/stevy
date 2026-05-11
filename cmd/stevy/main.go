@@ -28,6 +28,7 @@ import (
 	"github.com/stevysh/stevy/internal/auth"
 	"github.com/stevysh/stevy/internal/db"
 	"github.com/stevysh/stevy/internal/dialect"
+	"github.com/stevysh/stevy/internal/middleware"
 	"github.com/stevysh/stevy/internal/service"
 	"github.com/stevysh/stevy/internal/web"
 )
@@ -213,6 +214,10 @@ func cmdServe() error {
 	}, sessions, database)
 	apiKeys := auth.NewAPIKeyHandler(database, sessions)
 	apiAuth := auth.APIKeyInterceptor(database)
+	validate, err := middleware.Validate()
+	if err != nil {
+		return err
+	}
 
 	jobSvc := service.NewJob(b.driver)
 	queueSvc := service.NewQueue(b.driver)
@@ -220,7 +225,7 @@ func cmdServe() error {
 
 	mux := http.NewServeMux()
 
-	interceptors := connect.WithInterceptors(apiAuth)
+	interceptors := connect.WithInterceptors(apiAuth, validate)
 	jobPath, jobHandler := stevyv1connect.NewJobServiceHandler(jobSvc, interceptors)
 	queuePath, queueHandler := stevyv1connect.NewQueueServiceHandler(queueSvc, interceptors)
 

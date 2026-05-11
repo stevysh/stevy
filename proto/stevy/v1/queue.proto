@@ -8,24 +8,62 @@ import "google/api/annotations.proto";
 option go_package = "github.com/stevysh/stevy/gen/stevy/v1;stevyv1";
 
 message QueueStats {
-  int32 pending = 2;
-  int32 scheduled = 3;
-  int32 available = 4;
-  int32 running = 5;
-  int32 retryable = 6;
-  int32 cancelled = 7;
-  int32 discarded = 8;
-  int32 completed = 9;
+  int32 pending = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).int32 = {gte: 0}
+  ];
+  int32 scheduled = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).int32 = {gte: 0}
+  ];
+  int32 available = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).int32 = {gte: 0}
+  ];
+  int32 running = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).int32 = {gte: 0}
+  ];
+  int32 retryable = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).int32 = {gte: 0}
+  ];
+  int32 cancelled = 7 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).int32 = {gte: 0}
+  ];
+  int32 discarded = 8 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).int32 = {gte: 0}
+  ];
+  int32 completed = 9 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).int32 = {gte: 0}
+  ];
 }
 
 message Queue {
-  string name = 1 [(buf.validate.field).required = true];
-  bool paused = 2;
-  QueueStats stats = 3;
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      pattern: "^[a-z0-9]+(?:[_-][a-z0-9]+)*$"
+      min_len: 1
+      max_len: 64
+    }
+  ];
+  bool paused = 2 [(buf.validate.field).required = true];
+  QueueStats stats = 3 [(buf.validate.field).required = true];
 }
 
 message GetQueueRequest {
-  string name = 1 [(buf.validate.field).required = true];
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      pattern: "^[a-z0-9]+(?:[_-][a-z0-9]+)*$"
+      min_len: 1
+      max_len: 64
+    }
+  ];
 }
 
 message GetQueueResponse {
@@ -39,20 +77,32 @@ message ListQueuesResponse {
 }
 
 message PauseQueueRequest {
-  string name = 1 [(buf.validate.field).required = true];
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      pattern: "^[a-z0-9]+(?:[_-][a-z0-9]+)*$"
+      min_len: 1
+      max_len: 64
+    }
+  ];
 }
 message PauseQueueResponse {}
 
 message ResumeQueueRequest {
-  string name = 1 [(buf.validate.field).required = true];
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      pattern: "^[a-z0-9]+(?:[_-][a-z0-9]+)*$"
+      min_len: 1
+      max_len: 64
+    }
+  ];
 }
 message ResumeQueueResponse {}
 
 service QueueService {
   rpc ListQueues(ListQueuesRequest) returns (ListQueuesResponse) {
-    option (google.api.http) = {
-      get: "/v1/queues"
-    };
+    option (google.api.http) = {get: "/v1/queues"};
   }
   rpc GetQueue(GetQueueRequest) returns (GetQueueResponse) {
     option (google.api.http) = {
