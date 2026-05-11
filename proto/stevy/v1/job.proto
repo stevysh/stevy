@@ -15,7 +15,7 @@ message AttemptError {
 }
 
 message Job {
-  string id = 1 [(buf.validate.field).required = true];
+  string id = 1 [(buf.validate.field).required = true, (buf.validate.field).string.uuid = true];
   string queue = 2 [(buf.validate.field).required = true];
   string kind = 3 [(buf.validate.field).required = true];
   string status = 5 [(buf.validate.field).required = true, (buf.validate.field).string = {
@@ -39,16 +39,16 @@ message Job {
   google.protobuf.Struct result = 8;
   repeated AttemptError errors = 9;
   google.protobuf.Timestamp created_at = 10 [(buf.validate.field).required = true];
-  optional google.protobuf.Timestamp attempted_at = 11;
-  optional google.protobuf.Timestamp scheduled_at = 12;
-  optional google.protobuf.Timestamp finalized_at = 13;
+  google.protobuf.Timestamp attempted_at = 11;
+  google.protobuf.Timestamp scheduled_at = 12;
+  google.protobuf.Timestamp finalized_at = 13;
 }
 
 message CreateJobRequest {
   string queue = 1 [(buf.validate.field).required = true];
   string kind = 2 [(buf.validate.field).required = true];
   google.protobuf.Struct payload = 3;
-  optional JobOptions options = 4;
+  JobOptions options = 4;
 }
 
 message JobOptions {
@@ -86,19 +86,19 @@ message ClaimJobResponse {
 }
 
 message CompleteJobRequest {
-  string id = 1 [(buf.validate.field).required = true];
+  string id = 1 [(buf.validate.field).required = true, (buf.validate.field).string.uuid = true];
   google.protobuf.Struct result = 2;
 }
 message CompleteJobResponse {}
 
 message FailJobRequest {
-  string id = 1 [(buf.validate.field).required = true];
+  string id = 1 [(buf.validate.field).required = true, (buf.validate.field).string.uuid = true];
   string message = 2 [(buf.validate.field).required = true];
 }
 message FailJobResponse {}
 
 message HeartbeatJobRequest {
-  string id = 1 [(buf.validate.field).required = true];
+  string id = 1 [(buf.validate.field).required = true, (buf.validate.field).string.uuid = true];
   optional int32 progress = 2 [(buf.validate.field).int32 = {
     gte: 0
     lte: 100
@@ -107,12 +107,12 @@ message HeartbeatJobRequest {
 message HeartbeatJobResponse {}
 
 message CancelJobRequest {
-  string id = 1 [(buf.validate.field).required = true];
+  string id = 1 [(buf.validate.field).required = true, (buf.validate.field).string.uuid = true];
 }
 message CancelJobResponse {}
 
 message PromoteJobRequest {
-  string id = 1 [(buf.validate.field).required = true];
+  string id = 1 [(buf.validate.field).required = true, (buf.validate.field).string.uuid = true];
 }
 message PromoteJobResponse {}
 
@@ -134,23 +134,22 @@ message ListJobsRequest {
     gte: 1
     lte: 250
   }];
-  optional string cursor = 4;
+  optional string after = 4 [(buf.validate.field).string.uuid = true];
 }
 
 message ListJobsResponse {
   repeated Job jobs = 1;
-  optional string next_cursor = 2;
 }
 
 message GetJobRequest {
-  string id = 1 [(buf.validate.field).required = true];
+  string id = 1 [(buf.validate.field).required = true, (buf.validate.field).string.uuid = true];
 }
 message GetJobResponse {
   Job job = 1 [(buf.validate.field).required = true];
 }
 
 message GetJobStateRequest {
-  string id = 1 [(buf.validate.field).required = true];
+  string id = 1 [(buf.validate.field).required = true, (buf.validate.field).string.uuid = true];
 }
 message GetJobStateResponse {
   string status = 1 [(buf.validate.field).required = true, (buf.validate.field).string = {

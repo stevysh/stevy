@@ -7,8 +7,7 @@ import (
 	"strings"
 	"time"
 
-	nanoid "github.com/matoous/go-nanoid/v2"
-
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -52,10 +51,11 @@ func (d *PGDriver) CreateJob(ctx context.Context, o CreateOpts) (*JobRow, error)
 		status = "pending"
 	}
 
-	id, err := nanoid.New()
+	idV7, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
 	}
+	id := idV7.String()
 
 	metadata := o.Metadata
 	if len(metadata) == 0 {
@@ -360,9 +360,9 @@ func (d *PGDriver) PromoteScheduledJobs(ctx context.Context, limit int) (int64, 
 	return tag.RowsAffected(), nil
 }
 
-func (d *PGDriver) ListJobs(ctx context.Context, queue, status string, pageSize int, afterID string, afterCreatedAt *time.Time) ([]JobRow, error) {
-	if pageSize <= 0 {
-		pageSize = 50
+func (d *PGDriver) ListJobs(ctx context.Context, queue, status string, limit int, afterID string) ([]JobRow, error) {
+	if limit <= 0 {
+		limit = 50
 	}
 	var args []any
 	var conds []string
@@ -374,9 +374,9 @@ func (d *PGDriver) ListJobs(ctx context.Context, queue, status string, pageSize 
 		args = append(args, status)
 		conds = append(conds, fmt.Sprintf("status = $%d", len(args)))
 	}
-	if afterCreatedAt != nil {
-		args = append(args, *afterCreatedAt, afterID)
-		conds = append(conds, fmt.Sprintf("(created_at < $%d OR (created_at = $%d AND id < $%d))", len(args)-1, len(args)-1, len(args)))
+	if afterID != "" {
+		args = append(args, afterID)
+		conds = append(conds, fmt.Sprintf("id < $%d", len(args)))
 	}
 	q := `SELECT id, queue, kind, status, priority, attempt, max_attempts, progress,
 		       payload, metadata, result, errors,
@@ -385,8 +385,8 @@ func (d *PGDriver) ListJobs(ctx context.Context, queue, status string, pageSize 
 	if len(conds) > 0 {
 		q += " WHERE " + strings.Join(conds, " AND ")
 	}
-	args = append(args, pageSize)
-	q += fmt.Sprintf(` ORDER BY created_at DESC, id DESC LIMIT $%d`, len(args))
+	args = append(args, limit)
+	q += fmt.Sprintf(` ORDER BY id DESC LIMIT $%d`, len(args))
 
 	rows, err := d.pool.Query(ctx, q, args...)
 	if err != nil {

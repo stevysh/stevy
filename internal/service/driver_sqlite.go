@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	nanoid "github.com/matoous/go-nanoid/v2"
+	"github.com/google/uuid"
 )
 
 // SQLiteDriver is the SQLite implementation of Driver.
@@ -69,10 +69,11 @@ func (d *SQLiteDriver) CreateJob(ctx context.Context, o CreateOpts) (*JobRow, er
 		status = "pending"
 	}
 
-	id, err := nanoid.New()
+	idV7, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
 	}
+	id := idV7.String()
 	metadata := o.Metadata
 	if len(metadata) == 0 {
 		metadata = []byte("{}")
@@ -396,9 +397,9 @@ func (d *SQLiteDriver) PromoteScheduledJobs(ctx context.Context, limit int) (int
 	return n, nil
 }
 
-func (d *SQLiteDriver) ListJobs(ctx context.Context, queue, status string, pageSize int, afterID string, afterCreatedAt *time.Time) ([]JobRow, error) {
-	if pageSize <= 0 {
-		pageSize = 50
+func (d *SQLiteDriver) ListJobs(ctx context.Context, queue, status string, limit int, afterID string) ([]JobRow, error) {
+	if limit <= 0 {
+		limit = 50
 	}
 	var args []any
 	var conds []string
@@ -410,10 +411,9 @@ func (d *SQLiteDriver) ListJobs(ctx context.Context, queue, status string, pageS
 		conds = append(conds, "status = ?")
 		args = append(args, status)
 	}
-	if afterCreatedAt != nil {
-		conds = append(conds, "(created_at < ? OR (created_at = ? AND id < ?))")
-		t := afterCreatedAt.UTC().Format(sqliteTimeFmt)
-		args = append(args, t, t, afterID)
+	if afterID != "" {
+		conds = append(conds, "id < ?")
+		args = append(args, afterID)
 	}
 	q := `SELECT id, queue, kind, status, priority, attempt, max_attempts, progress,
 		       payload, metadata, result, errors,
@@ -425,8 +425,8 @@ func (d *SQLiteDriver) ListJobs(ctx context.Context, queue, status string, pageS
 	if len(conds) > 0 {
 		q += " WHERE " + strings.Join(conds, " AND ")
 	}
-	q += ` ORDER BY created_at DESC, id DESC LIMIT ?`
-	args = append(args, pageSize)
+	q += ` ORDER BY id DESC LIMIT ?`
+	args = append(args, limit)
 
 	rows, err := d.db.QueryContext(ctx, q, args...)
 	if err != nil {

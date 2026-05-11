@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,18 +33,7 @@ func (s *JobService) ListJobs(ctx context.Context, req *connect.Request[jobv1.Li
 		limit = 50
 	}
 
-	var afterID string
-	var afterCreatedAt *time.Time
-	if cursor := req.Msg.GetCursor(); cursor != "" {
-		id, ca, err := decodeCursor(cursor)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid cursor"))
-		}
-		afterID = id
-		afterCreatedAt = &ca
-	}
-
-	rows, err := s.driver.ListJobs(ctx, req.Msg.GetQueue(), req.Msg.GetStatus(), limit+1, afterID, afterCreatedAt)
+	rows, err := s.driver.ListJobs(ctx, req.Msg.GetQueue(), req.Msg.GetStatus(), limit+1, req.Msg.GetAfter())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -53,8 +41,6 @@ func (s *JobService) ListJobs(ctx context.Context, req *connect.Request[jobv1.Li
 	resp := &jobv1.ListJobsResponse{}
 	if len(rows) > limit {
 		rows = rows[:limit]
-		next := encodeCursor(rows[len(rows)-1].ID, rows[len(rows)-1].CreatedAt)
-		resp.NextCursor = &next
 	}
 
 	resp.Jobs = make([]*jobv1.Job, 0, len(rows))
@@ -263,27 +249,6 @@ func (s *JobService) GetJobState(ctx context.Context, req *connect.Request[jobv1
 
 // ─────────────────────────── Helpers ───────────────────────────
 
-type cursorData struct {
-	ID        string    `json:"i"`
-	CreatedAt time.Time `json:"c"`
-}
-
-func encodeCursor(id string, createdAt time.Time) string {
-	b, _ := json.Marshal(cursorData{ID: id, CreatedAt: createdAt})
-	return base64.RawURLEncoding.EncodeToString(b)
-}
-
-func decodeCursor(cursor string) (id string, createdAt time.Time, err error) {
-	b, err := base64.RawURLEncoding.DecodeString(cursor)
-	if err != nil {
-		return
-	}
-	var d cursorData
-	if err = json.Unmarshal(b, &d); err != nil {
-		return
-	}
-	return d.ID, d.CreatedAt, nil
-}
 
 func rowToProto(row *JobRow) *jobv1.Job {
 	var payloadMap map[string]any

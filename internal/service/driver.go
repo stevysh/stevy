@@ -67,7 +67,7 @@ type Driver interface {
 	ListQueues(ctx context.Context) ([]QueueSummary, error)
 	PauseQueue(ctx context.Context, name string) error
 	ResumeQueue(ctx context.Context, name string) error
-	ListJobs(ctx context.Context, queue, status string, pageSize int, afterID string, afterCreatedAt *time.Time) ([]JobRow, error)
+	ListJobs(ctx context.Context, queue, status string, limit int, afterID string) ([]JobRow, error)
 	JobCountsByStatus(ctx context.Context) (map[string]int32, error)
 	PromoteScheduledJobs(ctx context.Context, limit int) (int64, error)
 	FailExpiredJobs(ctx context.Context, limit int) (int64, error)
