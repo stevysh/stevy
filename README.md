@@ -115,11 +115,11 @@ The OpenAPI spec is generated at `public/openapi.yaml`.
 ```bash
 curl "http://localhost:8080/v1/jobs?limit=50" \
   -H "Authorization: Bearer stv_XXXXXX"
-# → { "jobs": [..., { "id": "0190f3c2-..." }] }
+# → { [..., { "id": "0190f3c2-..." }] }
 
 curl "http://localhost:8080/v1/jobs?limit=50&after=0190f3c2-..." \
   -H "Authorization: Bearer stv_XXXXXX"
-# → { "jobs": [...] }
+# → { [...] }
 ```
 
 ## Worker flow
