@@ -110,14 +110,14 @@ The OpenAPI spec is generated at `public/openapi.yaml`.
 
 ### Pagination
 
-`ListJobs` returns jobs in reverse chronological order by `id`. Job IDs are UUIDv7, so they sort by creation time. To page, pass the last job's `id` from the previous response as `?after=`. When fewer than `limit` jobs come back, you've reached the end.
+`ListJobs` returns jobs in reverse chronological order by `id`. Job IDs are lowercase ULIDs, so they sort by creation time. To page, pass the last job's `id` from the previous response as `?after=`. When fewer than `limit` jobs come back, you've reached the end.
 
 ```bash
 curl "http://localhost:8080/v1/jobs?limit=50" \
   -H "Authorization: Bearer stv_XXXXXX"
-# → { [..., { "id": "0190f3c2-..." }] }
+# → { [..., { "id": "01jtxw0a3k..." }] }
 
-curl "http://localhost:8080/v1/jobs?limit=50&after=0190f3c2-..." \
+curl "http://localhost:8080/v1/jobs?limit=50&after=01jtxw0a3k..." \
   -H "Authorization: Bearer stv_XXXXXX"
 # → { [...] }
 ```

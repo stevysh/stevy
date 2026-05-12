@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/oklog/ulid/v2"
 )
 
 // SQLiteDriver is the SQLite implementation of Driver.
@@ -69,11 +69,11 @@ func (d *SQLiteDriver) CreateJob(ctx context.Context, o CreateOpts) (*JobRow, er
 		status = "pending"
 	}
 
-	idV7, err := uuid.NewV7()
+	idULID, err := ulid.New(ulid.Timestamp(time.Now()), ulid.DefaultEntropy())
 	if err != nil {
 		return nil, err
 	}
-	id := idV7.String()
+	id := strings.ToLower(idULID.String())
 	metadata := o.Metadata
 	if len(metadata) == 0 {
 		metadata = []byte("{}")
