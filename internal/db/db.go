@@ -9,9 +9,10 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/oklog/ulid/v2"
 
 	"github.com/stevysh/stevy/internal/dialect"
 )
@@ -65,11 +66,11 @@ func New(sqlDB *sql.DB, d dialect.Dialect) *DB {
 func (d *DB) q(query string) string { return d.Dialect.Q(query) }
 
 func newID() (string, error) {
-	id, err := uuid.NewV7()
+	id, err := ulid.New(ulid.Timestamp(time.Now()), ulid.DefaultEntropy())
 	if err != nil {
 		return "", err
 	}
-	return id.String(), nil
+	return strings.ToLower(id.String()), nil
 }
 
 // ─────────────────────────── Users ───────────────────────────

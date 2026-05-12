@@ -17,7 +17,7 @@ message AttemptError {
 message Job {
   string id = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.uuid = true
+    (buf.validate.field).string.pattern = "^[0-7][0-9a-hjkmnp-tv-z]{25}$"
   ];
   string queue = 2 [
     (buf.validate.field).required = true,
@@ -121,7 +121,7 @@ message ClaimJobResponse {
 message CompleteJobRequest {
   string id = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.uuid = true
+    (buf.validate.field).string.pattern = "^[0-7][0-9a-hjkmnp-tv-z]{25}$"
   ];
   google.protobuf.Struct result = 2;
 }
@@ -130,7 +130,7 @@ message CompleteJobResponse {}
 message FailJobRequest {
   string id = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.uuid = true
+    (buf.validate.field).string.pattern = "^[0-7][0-9a-hjkmnp-tv-z]{25}$"
   ];
   string message = 2 [(buf.validate.field).required = true];
 }
@@ -139,7 +139,7 @@ message FailJobResponse {}
 message HeartbeatJobRequest {
   string id = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.uuid = true
+    (buf.validate.field).string.pattern = "^[0-7][0-9a-hjkmnp-tv-z]{25}$"
   ];
   optional int32 progress = 2 [(buf.validate.field).int32 = {
     gte: 0
@@ -151,7 +151,7 @@ message HeartbeatJobResponse {}
 message CancelJobRequest {
   string id = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.uuid = true
+    (buf.validate.field).string.pattern = "^[0-7][0-9a-hjkmnp-tv-z]{25}$"
   ];
 }
 message CancelJobResponse {}
@@ -159,7 +159,7 @@ message CancelJobResponse {}
 message PromoteJobRequest {
   string id = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.uuid = true
+    (buf.validate.field).string.pattern = "^[0-7][0-9a-hjkmnp-tv-z]{25}$"
   ];
 }
 message PromoteJobResponse {}
@@ -186,7 +186,7 @@ message ListJobsRequest {
     gte: 1
     lte: 250
   }];
-  optional string after = 4 [(buf.validate.field).string.uuid = true];
+  optional string after = 4 [(buf.validate.field).string.pattern = "^[0-7][0-9a-hjkmnp-tv-z]{25}$"];
 }
 
 message ListJobsResponse {
@@ -196,7 +196,7 @@ message ListJobsResponse {
 message GetJobRequest {
   string id = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.uuid = true
+    (buf.validate.field).string.pattern = "^[0-7][0-9a-hjkmnp-tv-z]{25}$"
   ];
 }
 message GetJobResponse {
@@ -206,7 +206,7 @@ message GetJobResponse {
 message GetJobStateRequest {
   string id = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.uuid = true
+    (buf.validate.field).string.pattern = "^[0-7][0-9a-hjkmnp-tv-z]{25}$"
   ];
 }
 message GetJobStateResponse {

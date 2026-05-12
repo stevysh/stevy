@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/oklog/ulid/v2"
 )
 
 type PGDriver struct {
@@ -51,11 +51,11 @@ func (d *PGDriver) CreateJob(ctx context.Context, o CreateOpts) (*JobRow, error)
 		status = "pending"
 	}
 
-	idV7, err := uuid.NewV7()
+	idULID, err := ulid.New(ulid.Timestamp(time.Now()), ulid.DefaultEntropy())
 	if err != nil {
 		return nil, err
 	}
-	id := idV7.String()
+	id := strings.ToLower(idULID.String())
 
 	metadata := o.Metadata
 	if len(metadata) == 0 {
