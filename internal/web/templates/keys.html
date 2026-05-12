@@ -35,7 +35,7 @@
         <td><code>${escape(k.KeyPrefix)}...</code></td>
         <td>${new Date(k.CreatedAt).toLocaleDateString()}</td>
         <td>${k.LastUsedAt ? new Date(k.LastUsedAt).toLocaleString() : '—'}</td>
-        <td><button class="danger" onclick="deleteKey(${k.ID})">Revoke</button></td>
+        <td><button class="danger" onclick="deleteKey('${escape(k.ID)}')">Revoke</button></td>
       </tr>
     `).join('') || '<tr><td colspan="5" style="color:#57606a">No client keys yet.</td></tr>';
   }
