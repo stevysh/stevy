@@ -39,7 +39,7 @@
         <td>${w.last_seen_at
           ? (w.active ? '<span class="badge badge-completed">active</span>' : '<span class="badge badge-cancelled">offline</span>')
           : '<span class="muted">—</span>'}</td>
-        <td><button class="danger" onclick="deleteWorker(${w.id})">Delete</button></td>
+        <td><button class="danger" onclick="deleteWorker('${escape(w.id)}')">Delete</button></td>
       </tr>
     `).join('') || '<tr><td colspan="6" style="color:#57606a">No workers yet.</td></tr>';
   }
