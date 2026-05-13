@@ -11,7 +11,7 @@ Self-hosted job queue service with multi-protocol API (gRPC, gRPC-Web, Connect, 
 | `CreateJob` | `POST` | `/v1/jobs` |
 | `ListJobs` | `GET` | `/v1/jobs` |
 | `GetJob` | `GET` | `/v1/jobs/{id}` |
-| `GetJobStatus` | `GET` | `/v1/jobs/{id}/status` |
+| `GetJobState` | `GET` | `/v1/jobs/{id}/state` |
 | `ClaimJob` | `POST` | `/v1/jobs/claim` |
 | `CompleteJob` | `POST` | `/v1/jobs/{id}/complete` |
 | `FailJob` | `POST` | `/v1/jobs/{id}/fail` |
