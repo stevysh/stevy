@@ -19,7 +19,7 @@ Visit `http://localhost:8080` to sign in and manage jobs, queues, workers, and A
 
 | Variable | Description | Default |
 |---|---|---|
-| `PORT` | Server listen port | `3000` |
+| `PORT` | Server listen port | `8080` |
 | `DATABASE_URL` | Database connection string (see below) | required |
 | `SESSION_SECRET` | HMAC key for signing session cookies | required |
 | `GOOGLE_CLIENT_ID` | Google OAuth 2.0 client ID | required |
