@@ -229,10 +229,13 @@ func cmdServe() error {
 	jobPath, jobHandler := stevyv1connect.NewJobServiceHandler(jobSvc, interceptors)
 	queuePath, queueHandler := stevyv1connect.NewQueueServiceHandler(queueSvc, interceptors)
 
+	restOpts := vanguard.WithRESTUnmarshalOptions(vanguard.RESTUnmarshalOptions{
+		DiscardUnknownQueryParams: true,
+	})
 	transcoder, err := vanguard.NewTranscoder(
 		[]*vanguard.Service{
-			vanguard.NewService(jobPath, jobHandler),
-			vanguard.NewService(queuePath, queueHandler),
+			vanguard.NewService(jobPath, jobHandler, restOpts),
+			vanguard.NewService(queuePath, queueHandler, restOpts),
 		},
 		vanguard.WithCodec(func(res vanguard.TypeResolver) vanguard.Codec {
 			codec := vanguard.NewJSONCodec(res)
