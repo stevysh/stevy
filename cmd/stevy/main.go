@@ -248,11 +248,14 @@ func cmdServe() error {
 	if err != nil {
 		return fmt.Errorf("vanguard: %w", err)
 	}
+
+	mux.Handle("/v1/", transcoder)
 	mux.Handle(jobPath, transcoder)
 	mux.Handle(queuePath, transcoder)
 
 	oauth.RegisterRoutes(mux)
 	apiKeys.RegisterRoutes(mux)
+
 	mux.HandleFunc("POST /scheduler/run", webHandler.RunScheduler)
 	mux.HandleFunc("POST /queues/{name}/pause", webHandler.PauseQueue)
 	mux.HandleFunc("POST /queues/{name}/resume", webHandler.ResumeQueue)
