@@ -15,24 +15,27 @@
       background: #fff;
       border-bottom: 1px solid #d0d7de;
       box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04);
+      position: sticky;
+      top: 0;
+      z-index: 30;
     }
     header .inner {
       max-width: 1200px;
       margin: 0 auto;
       padding: 0 24px;
       display: flex;
-      align-items: stretch;
+      align-items: center;
       justify-content: space-between;
-      min-height: 52px;
+      min-height: 56px;
     }
     header .left {
       display: flex;
-      align-items: stretch;
-      gap: 24px;
+      align-items: center;
+      gap: 32px;
     }
     header h1 {
-      font-size: 17px;
-      font-weight: 600;
+      font-size: 18px;
+      font-weight: 800;
       margin: 0;
       letter-spacing: -0.01em;
       display: flex;
@@ -42,60 +45,100 @@
     header nav {
       display: flex;
       gap: 4px;
-      align-items: stretch;
+      align-items: center;
     }
     header nav a {
       display: flex;
       align-items: center;
-      padding: 0 14px;
+      padding: 6px 12px;
       font-size: 14px;
+      font-weight: 500;
       color: #57606a;
       text-decoration: none;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -1px;
-    }
-    header nav a:hover { color: #24292f; }
-    header nav a.active {
-      color: #0969da;
-      border-bottom-color: #0969da;
-    }
-    header .user-info {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-    header .user {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      color: #24292f;
-    }
-    header .avatar {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      background: #eaeef2;
-      color: #57606a;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-    header a.logout {
-      color: #57606a;
-      text-decoration: none;
-      font-size: 13px;
-      padding: 6px 10px;
       border-radius: 6px;
       transition: background 0.15s, color 0.15s;
     }
-    header a.logout:hover {
-      background: #f6f8fa;
-      color: #24292f;
+    header nav a:hover { color: #24292f; background: #f6f8fa; }
+    header nav a.active {
+      color: #0969da;
+      background: #ddf4ff;
     }
+    .user-menu {
+      position: relative;
+    }
+    .user-menu-button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: none;
+      border: 0;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #24292f;
+      transition: background 0.15s;
+    }
+    .user-menu-button:hover { background: #f6f8fa; }
+    .user-menu .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ddf4ff, #b6e3ff);
+      border: 1px solid #b6e3ff;
+      color: #0550ae;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .user-menu .chevron {
+      width: 14px;
+      height: 14px;
+      color: #57606a;
+      transition: transform 0.15s;
+    }
+    .user-menu.open .chevron { transform: rotate(180deg); }
+    .user-menu-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      min-width: 200px;
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+      padding: 4px 0;
+      display: none;
+      z-index: 40;
+    }
+    .user-menu.open .user-menu-dropdown { display: block; }
+    .user-menu-dropdown .email-label {
+      padding: 8px 14px 2px;
+      font-size: 11px;
+      color: #57606a;
+    }
+    .user-menu-dropdown .email-value {
+      padding: 0 14px 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #24292f;
+      border-bottom: 1px solid #eaeef2;
+      margin-bottom: 4px;
+      word-break: break-all;
+    }
+    .user-menu-dropdown a {
+      display: block;
+      padding: 8px 14px;
+      font-size: 13px;
+      color: #24292f;
+      text-decoration: none;
+    }
+    .user-menu-dropdown a:hover { background: #f6f8fa; }
     main {
       max-width: 1200px;
       margin: 20px auto 32px;
@@ -176,12 +219,19 @@
           <a href="/keys"    {{if eq .ActiveTab "keys"}}class="active"{{end}}>API Keys</a>
         </nav>
       </div>
-      <div class="user-info">
-        <span class="user">
+      <div class="user-menu" id="user-menu">
+        <button type="button" class="user-menu-button" id="user-menu-button" aria-haspopup="true" aria-expanded="false">
           <span class="avatar">{{slice .User.Email 0 1}}</span>
-          {{.User.Email}}
-        </span>
-        <a class="logout" href="/auth/logout">Logout</a>
+          <span>{{.User.Email}}</span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <div class="user-menu-dropdown" id="user-menu-dropdown" role="menu">
+          <div class="email-label">Signed in as</div>
+          <div class="email-value">{{.User.Email}}</div>
+          <a href="/auth/logout" role="menuitem">Logout</a>
+        </div>
       </div>
     </div>
   </header>
@@ -189,5 +239,32 @@
   <main>
     {{template "content" .}}
   </main>
+
+  <script>
+    (function () {
+      var menu = document.getElementById('user-menu');
+      var button = document.getElementById('user-menu-button');
+      if (!menu || !button) return;
+
+      function close() {
+        menu.classList.remove('open');
+        button.setAttribute('aria-expanded', 'false');
+      }
+
+      button.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var open = menu.classList.toggle('open');
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!menu.contains(e.target)) close();
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') close();
+      });
+    })();
+  </script>
 </body>
 </html>
