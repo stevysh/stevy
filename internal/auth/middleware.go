@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 
 	"github.com/stevysh/stevy/internal/db"
 )
@@ -36,39 +36,40 @@ var workerMethods = map[string]bool{
 // APIKeyInterceptor enforces API-key auth on Connect RPC calls.
 // stv_ prefix → client key → api_keys table → client methods.
 // stw_ prefix → worker key → workers table → worker methods.
-func APIKeyInterceptor(database *db.DB) connect.Interceptor {
-	return connect.UnaryInterceptorFunc(func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			authHdr := req.Header().Get("Authorization")
+func APIKeyInterceptor(database *db.DB) connect.ServerInterceptor {
+	return func(next connect.ServerFunc) connect.ServerFunc {
+		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
+			info, _ := connect.CallInfoForServerContext(ctx)
+			authHdr := info.RequestHeader().Get("Authorization")
 			if !strings.HasPrefix(authHdr, "Bearer ") {
-				return nil, connect.NewError(connect.CodeUnauthenticated, nil)
+				return connect.NewError(connect.CodeUnauthenticated, "")
 			}
 			token := strings.TrimPrefix(authHdr, "Bearer ")
-			procedure := req.Spec().Procedure
+			procedure := spec.Procedure
 
 			switch {
 			case strings.HasPrefix(token, "stw_"):
 				if !workerMethods[procedure] {
-					return nil, connect.NewError(connect.CodePermissionDenied, nil)
+					return connect.NewError(connect.CodePermissionDenied, "")
 				}
 				workerID, err := database.LookupWorkerKey(ctx, token)
 				if err != nil {
-					return nil, connect.NewError(connect.CodeUnauthenticated, err)
+					return connect.NewError(connect.CodeUnauthenticated, err.Error()).WithCause(err)
 				}
 				ctx = ContextWithWorkerID(ctx, workerID)
 
 			case strings.HasPrefix(token, "stv_"):
 				lookup, err := database.LookupAPIKey(ctx, token)
 				if err != nil {
-					return nil, connect.NewError(connect.CodeUnauthenticated, err)
+					return connect.NewError(connect.CodeUnauthenticated, err.Error()).WithCause(err)
 				}
 				ctx = ContextWithUserID(ctx, lookup.UserID)
 
 			default:
-				return nil, connect.NewError(connect.CodeUnauthenticated, nil)
+				return connect.NewError(connect.CodeUnauthenticated, "")
 			}
 
-			return next(ctx, req)
+			return next(ctx, spec, stream)
 		}
-	})
+	}
 }

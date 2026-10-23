@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 
 	queuev1 "github.com/stevysh/stevy/gen/stevy/v1"
 )
@@ -16,10 +16,10 @@ func NewQueue(driver Driver) *QueueService {
 	return &QueueService{driver: driver}
 }
 
-func (s *QueueService) ListQueues(ctx context.Context, _ *connect.Request[queuev1.ListQueuesRequest]) (*connect.Response[queuev1.ListQueuesResponse], error) {
+func (s *QueueService) ListQueues(ctx context.Context, _ *queuev1.ListQueuesRequest) (*queuev1.ListQueuesResponse, error) {
 	summaries, err := s.driver.ListQueues(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
 	queues := make([]*queuev1.Queue, 0, len(summaries))
 	for _, s := range summaries {
@@ -29,22 +29,22 @@ func (s *QueueService) ListQueues(ctx context.Context, _ *connect.Request[queuev
 			Stats:  countsToStats(s.CountsByStatus),
 		})
 	}
-	return connect.NewResponse(&queuev1.ListQueuesResponse{Queues: queues}), nil
+	return &queuev1.ListQueuesResponse{Queues: queues}, nil
 }
 
-func (s *QueueService) GetQueue(ctx context.Context, req *connect.Request[queuev1.GetQueueRequest]) (*connect.Response[queuev1.GetQueueResponse], error) {
-	info, err := s.driver.QueueInfo(ctx, req.Msg.GetName())
+func (s *QueueService) GetQueue(ctx context.Context, req *queuev1.GetQueueRequest) (*queuev1.GetQueueResponse, error) {
+	info, err := s.driver.QueueInfo(ctx, req.GetName())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
 
-	return connect.NewResponse(&queuev1.GetQueueResponse{
+	return &queuev1.GetQueueResponse{
 		Queue: &queuev1.Queue{
-			Name:   req.Msg.GetName(),
+			Name:   req.GetName(),
 			Paused: info.Paused,
 			Stats:  countsToStats(info.CountsByStatus),
 		},
-	}), nil
+	}, nil
 }
 
 func countsToStats(c map[string]int32) *queuev1.QueueStats {
@@ -60,16 +60,16 @@ func countsToStats(c map[string]int32) *queuev1.QueueStats {
 	}
 }
 
-func (s *QueueService) PauseQueue(ctx context.Context, req *connect.Request[queuev1.PauseQueueRequest]) (*connect.Response[queuev1.PauseQueueResponse], error) {
-	if err := s.driver.PauseQueue(ctx, req.Msg.GetName()); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+func (s *QueueService) PauseQueue(ctx context.Context, req *queuev1.PauseQueueRequest) (*queuev1.PauseQueueResponse, error) {
+	if err := s.driver.PauseQueue(ctx, req.GetName()); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
-	return connect.NewResponse(&queuev1.PauseQueueResponse{}), nil
+	return &queuev1.PauseQueueResponse{}, nil
 }
 
-func (s *QueueService) ResumeQueue(ctx context.Context, req *connect.Request[queuev1.ResumeQueueRequest]) (*connect.Response[queuev1.ResumeQueueResponse], error) {
-	if err := s.driver.ResumeQueue(ctx, req.Msg.GetName()); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+func (s *QueueService) ResumeQueue(ctx context.Context, req *queuev1.ResumeQueueRequest) (*queuev1.ResumeQueueResponse, error) {
+	if err := s.driver.ResumeQueue(ctx, req.GetName()); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
-	return connect.NewResponse(&queuev1.ResumeQueueResponse{}), nil
+	return &queuev1.ResumeQueueResponse{}, nil
 }

@@ -14,7 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
+	"connectrpc.com/connect/v2/connectproto"
 	"connectrpc.com/vanguard"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -225,19 +227,16 @@ func cmdServe() error {
 
 	mux := http.NewServeMux()
 
-	interceptors := connect.WithInterceptors(apiAuth, validate)
-	jobPath, jobHandler := stevyv1connect.NewJobServiceHandler(jobSvc, interceptors)
-	queuePath, queueHandler := stevyv1connect.NewQueueServiceHandler(queueSvc, interceptors)
+	rpcServer := connect.NewServer(apiAuth, validate)
+	stevyv1connect.RegisterJobServiceHandler(rpcServer, jobSvc)
+	stevyv1connect.RegisterQueueServiceHandler(rpcServer, queueSvc)
+	connecthttp.Mount(mux, rpcServer)
 
-	restOpts := vanguard.WithRESTUnmarshalOptions(vanguard.RESTUnmarshalOptions{
-		DiscardUnknownQueryParams: true,
-	})
-	transcoder, err := vanguard.NewTranscoder(
-		[]*vanguard.Service{
-			vanguard.NewService(jobPath, jobHandler, restOpts),
-			vanguard.NewService(queuePath, queueHandler, restOpts),
-		},
-		vanguard.WithCodec(func(res vanguard.TypeResolver) vanguard.Codec {
+	// Vanguard installs a catch-all "/" route, so scope REST to /v1/.
+	restMux := http.NewServeMux()
+	err = vanguard.Mount(restMux, rpcServer,
+		vanguard.WithDiscardUnknownQueryParams(true),
+		vanguard.WithCodec(func(res connectproto.TypeResolver) vanguard.RESTCodec {
 			codec := vanguard.NewJSONCodec(res)
 			codec.MarshalOptions.UseProtoNames = true
 			codec.MarshalOptions.EmitUnpopulated = true
@@ -248,10 +247,7 @@ func cmdServe() error {
 	if err != nil {
 		return fmt.Errorf("vanguard: %w", err)
 	}
-
-	mux.Handle("/v1/", transcoder)
-	mux.Handle(jobPath, transcoder)
-	mux.Handle(queuePath, transcoder)
+	mux.Handle("/v1/", restMux)
 
 	oauth.RegisterRoutes(mux)
 	apiKeys.RegisterRoutes(mux)

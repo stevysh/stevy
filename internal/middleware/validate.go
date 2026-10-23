@@ -4,27 +4,40 @@ import (
 	"context"
 
 	"buf.build/go/protovalidate"
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"google.golang.org/protobuf/proto"
 )
 
 // Validate returns a Connect interceptor that runs protovalidate on every
 // request message and rejects with InvalidArgument on failure.
-func Validate() (connect.Interceptor, error) {
+func Validate() (connect.ServerInterceptor, error) {
 	v, err := protovalidate.New()
 	if err != nil {
 		return nil, err
 	}
-	return connect.UnaryInterceptorFunc(func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			msg, ok := req.Any().(proto.Message)
-			if !ok {
-				return next(ctx, req)
-			}
-			if err := v.Validate(msg); err != nil {
-				return nil, connect.NewError(connect.CodeInvalidArgument, err)
-			}
-			return next(ctx, req)
+	return func(next connect.ServerFunc) connect.ServerFunc {
+		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
+			return next(ctx, spec, &validatingStream{ServerStream: stream, validator: v})
 		}
-	}), nil
+	}, nil
+}
+
+// validatingStream validates each request message as it is received.
+type validatingStream struct {
+	connect.ServerStream
+	validator protovalidate.Validator
+}
+
+func (s *validatingStream) Receive(msg any) error {
+	if err := s.ServerStream.Receive(msg); err != nil {
+		return err
+	}
+	m, ok := msg.(proto.Message)
+	if !ok {
+		return nil
+	}
+	if err := s.validator.Validate(m); err != nil {
+		return connect.NewError(connect.CodeInvalidArgument, err.Error()).WithCause(err)
+	}
+	return nil
 }
