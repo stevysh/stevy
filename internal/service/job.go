@@ -4,12 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math"
 	"math/rand"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -27,15 +26,15 @@ func NewJob(driver Driver) *JobService {
 
 // ─────────────────────────── ListJobs ───────────────────────────
 
-func (s *JobService) ListJobs(ctx context.Context, req *connect.Request[jobv1.ListJobsRequest]) (*connect.Response[jobv1.ListJobsResponse], error) {
-	limit := int(req.Msg.GetLimit())
+func (s *JobService) ListJobs(ctx context.Context, req *jobv1.ListJobsRequest) (*jobv1.ListJobsResponse, error) {
+	limit := int(req.GetLimit())
 	if limit == 0 {
 		limit = 50
 	}
 
-	rows, err := s.driver.ListJobs(ctx, req.Msg.GetQueue(), req.Msg.GetStatus(), limit+1, req.Msg.GetAfter())
+	rows, err := s.driver.ListJobs(ctx, req.GetQueue(), req.GetStatus(), limit+1, req.GetAfter())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
 
 	resp := &jobv1.ListJobsResponse{}
@@ -48,14 +47,12 @@ func (s *JobService) ListJobs(ctx context.Context, req *connect.Request[jobv1.Li
 		resp.Jobs = append(resp.Jobs, rowToProto(&rows[i]))
 	}
 
-	return connect.NewResponse(resp), nil
+	return resp, nil
 }
 
 // ─────────────────────────── CreateJob ───────────────────────────
 
-func (s *JobService) CreateJob(ctx context.Context, req *connect.Request[jobv1.CreateJobRequest]) (*connect.Response[jobv1.CreateJobResponse], error) {
-	m := req.Msg
-
+func (s *JobService) CreateJob(ctx context.Context, m *jobv1.CreateJobRequest) (*jobv1.CreateJobResponse, error) {
 	payloadBytes, _ := json.Marshal(m.GetPayload().AsMap())
 
 	meta := map[string]any{}
@@ -87,56 +84,56 @@ func (s *JobService) CreateJob(ctx context.Context, req *connect.Request[jobv1.C
 
 	created, err := s.driver.CreateJob(ctx, opts)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
-	return connect.NewResponse(&jobv1.CreateJobResponse{
+	return &jobv1.CreateJobResponse{
 		Job: rowToProto(created),
-	}), nil
+	}, nil
 }
 
 // ─────────────────────────── ClaimJob ───────────────────────────
 
-func (s *JobService) ClaimJob(ctx context.Context, req *connect.Request[jobv1.ClaimJobRequest]) (*connect.Response[jobv1.ClaimJobResponse], error) {
+func (s *JobService) ClaimJob(ctx context.Context, req *jobv1.ClaimJobRequest) (*jobv1.ClaimJobResponse, error) {
 	workerID := workerIDFromCtx(ctx)
-	row, err := s.driver.ClaimJob(ctx, req.Msg.GetQueue(), workerID)
+	row, err := s.driver.ClaimJob(ctx, req.GetQueue(), workerID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
 	if row == nil {
-		return connect.NewResponse(&jobv1.ClaimJobResponse{}), nil
+		return &jobv1.ClaimJobResponse{}, nil
 	}
-	return connect.NewResponse(&jobv1.ClaimJobResponse{Job: rowToProto(row)}), nil
+	return &jobv1.ClaimJobResponse{Job: rowToProto(row)}, nil
 }
 
 // ─────────────────────────── CompleteJob ───────────────────────────
 
-func (s *JobService) CompleteJob(ctx context.Context, req *connect.Request[jobv1.CompleteJobRequest]) (*connect.Response[jobv1.CompleteJobResponse], error) {
-	id, err := parseJobID(req.Msg.GetId())
+func (s *JobService) CompleteJob(ctx context.Context, req *jobv1.CompleteJobRequest) (*jobv1.CompleteJobResponse, error) {
+	id, err := parseJobID(req.GetId())
 	if err != nil {
 		return nil, err
 	}
-	resultJSON, _ := json.Marshal(req.Msg.GetResult().AsMap())
+	resultJSON, _ := json.Marshal(req.GetResult().AsMap())
 	if err := s.driver.CompleteJob(ctx, id, resultJSON); err != nil {
 		return nil, mapErr(err, "complete", id)
 	}
-	return connect.NewResponse(&jobv1.CompleteJobResponse{}), nil
+	return &jobv1.CompleteJobResponse{}, nil
 }
 
 // ─────────────────────────── FailJob ───────────────────────────
 
-func (s *JobService) FailJob(ctx context.Context, req *connect.Request[jobv1.FailJobRequest]) (*connect.Response[jobv1.FailJobResponse], error) {
-	id, err := parseJobID(req.Msg.GetId())
+func (s *JobService) FailJob(ctx context.Context, req *jobv1.FailJobRequest) (*jobv1.FailJobResponse, error) {
+	id, err := parseJobID(req.GetId())
 	if err != nil {
 		return nil, err
 	}
 	backoffMs, err := s.computeBackoffMs(ctx, id)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
-	if err := s.driver.FailJob(ctx, id, req.Msg.GetMessage(), backoffMs); err != nil {
+	if err := s.driver.FailJob(ctx, id, req.GetMessage(), backoffMs); err != nil {
 		return nil, mapErr(err, "fail", id)
 	}
-	return connect.NewResponse(&jobv1.FailJobResponse{}), nil
+	return &jobv1.FailJobResponse{}, nil
 }
 
 func (s *JobService) computeBackoffMs(ctx context.Context, id string) (int, error) {
@@ -169,52 +166,52 @@ func (s *JobService) computeBackoffMs(ctx context.Context, id string) (int, erro
 
 // ─────────────────────────── HeartbeatJob ───────────────────────────
 
-func (s *JobService) HeartbeatJob(ctx context.Context, req *connect.Request[jobv1.HeartbeatJobRequest]) (*connect.Response[jobv1.HeartbeatJobResponse], error) {
-	id, err := parseJobID(req.Msg.GetId())
+func (s *JobService) HeartbeatJob(ctx context.Context, req *jobv1.HeartbeatJobRequest) (*jobv1.HeartbeatJobResponse, error) {
+	id, err := parseJobID(req.GetId())
 	if err != nil {
 		return nil, err
 	}
 	var progress *int
-	if req.Msg.Progress != nil {
-		v := int(req.Msg.GetProgress())
+	if req.Progress != nil {
+		v := int(req.GetProgress())
 		progress = &v
 	}
 	if err := s.driver.HeartbeatJob(ctx, id, progress); err != nil {
 		return nil, mapErr(err, "heartbeat", id)
 	}
-	return connect.NewResponse(&jobv1.HeartbeatJobResponse{}), nil
+	return &jobv1.HeartbeatJobResponse{}, nil
 }
 
 // ─────────────────────────── CancelJob ───────────────────────────
 
-func (s *JobService) CancelJob(ctx context.Context, req *connect.Request[jobv1.CancelJobRequest]) (*connect.Response[jobv1.CancelJobResponse], error) {
-	id, err := parseJobID(req.Msg.GetId())
+func (s *JobService) CancelJob(ctx context.Context, req *jobv1.CancelJobRequest) (*jobv1.CancelJobResponse, error) {
+	id, err := parseJobID(req.GetId())
 	if err != nil {
 		return nil, err
 	}
 	if err := s.driver.CancelJob(ctx, id); err != nil {
 		return nil, mapErr(err, "cancel", id)
 	}
-	return connect.NewResponse(&jobv1.CancelJobResponse{}), nil
+	return &jobv1.CancelJobResponse{}, nil
 }
 
 // ─────────────────────────── PromoteJob ───────────────────────────
 
-func (s *JobService) PromoteJob(ctx context.Context, req *connect.Request[jobv1.PromoteJobRequest]) (*connect.Response[jobv1.PromoteJobResponse], error) {
-	id, err := parseJobID(req.Msg.GetId())
+func (s *JobService) PromoteJob(ctx context.Context, req *jobv1.PromoteJobRequest) (*jobv1.PromoteJobResponse, error) {
+	id, err := parseJobID(req.GetId())
 	if err != nil {
 		return nil, err
 	}
 	if err := s.driver.PromoteJob(ctx, id); err != nil {
 		return nil, mapErr(err, "promote", id)
 	}
-	return connect.NewResponse(&jobv1.PromoteJobResponse{}), nil
+	return &jobv1.PromoteJobResponse{}, nil
 }
 
 // ─────────────────────────── GetJob ───────────────────────────
 
-func (s *JobService) GetJob(ctx context.Context, req *connect.Request[jobv1.GetJobRequest]) (*connect.Response[jobv1.GetJobResponse], error) {
-	id, err := parseJobID(req.Msg.GetId())
+func (s *JobService) GetJob(ctx context.Context, req *jobv1.GetJobRequest) (*jobv1.GetJobResponse, error) {
+	id, err := parseJobID(req.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -222,13 +219,13 @@ func (s *JobService) GetJob(ctx context.Context, req *connect.Request[jobv1.GetJ
 	if err != nil {
 		return nil, mapErr(err, "get", id)
 	}
-	return connect.NewResponse(&jobv1.GetJobResponse{Job: rowToProto(row)}), nil
+	return &jobv1.GetJobResponse{Job: rowToProto(row)}, nil
 }
 
 // ─────────────────────────── GetJobState ───────────────────────────
 
-func (s *JobService) GetJobState(ctx context.Context, req *connect.Request[jobv1.GetJobStateRequest]) (*connect.Response[jobv1.GetJobStateResponse], error) {
-	id, err := parseJobID(req.Msg.GetId())
+func (s *JobService) GetJobState(ctx context.Context, req *jobv1.GetJobStateRequest) (*jobv1.GetJobStateResponse, error) {
+	id, err := parseJobID(req.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -244,11 +241,10 @@ func (s *JobService) GetJobState(ctx context.Context, req *connect.Request[jobv1
 	if errMsg := lastError(row.ErrorsJSON); errMsg != "" {
 		resp.Error = &errMsg
 	}
-	return connect.NewResponse(resp), nil
+	return resp, nil
 }
 
 // ─────────────────────────── Helpers ───────────────────────────
-
 
 func rowToProto(row *JobRow) *jobv1.Job {
 	var payloadMap map[string]any
@@ -326,7 +322,7 @@ func lastError(errorsJSON []byte) string {
 
 func parseJobID(s string) (string, error) {
 	if s == "" {
-		return "", connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("job id is required"))
+		return "", connect.Errorf(connect.CodeInvalidArgument, "job id is required")
 	}
 	return s, nil
 }
@@ -334,11 +330,11 @@ func parseJobID(s string) (string, error) {
 func mapErr(err error, op string, id string) error {
 	switch {
 	case errors.Is(err, ErrNotFound):
-		return connect.NewError(connect.CodeNotFound, fmt.Errorf("job %s not found", id))
+		return connect.Errorf(connect.CodeNotFound, "job %s not found", id)
 	case errors.Is(err, ErrWrongState):
-		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("job %s cannot %s in current state", id, op))
+		return connect.Errorf(connect.CodeFailedPrecondition, "job %s cannot %s in current state", id, op)
 	default:
-		return connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
 }
 
