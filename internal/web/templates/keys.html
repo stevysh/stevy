@@ -1,48 +1,65 @@
 {{define "content"}}
-<div class="card">
-  <h2>Create API Key</h2>
-  <div class="row">
-    <input id="label" placeholder="Label (e.g. 'my-app-prod')">
-    <button onclick="createKey()">Create</button>
+<h2 class="page-title">API Keys</h2>
+
+<div class="panel">
+  <h3>Create API key</h3>
+  <form id="create-form" class="row">
+    <input id="label" placeholder="Label (e.g. 'my-app-prod')" required>
+    <button type="submit">Create</button>
+  </form>
+  <div id="newKey" class="new-key" hidden>
+    <p>Save this client key now &mdash; it won't be shown again:</p>
+    <div class="key-line">
+      <code id="newKeyValue"></code>
+      <button type="button" class="outline" id="copyBtn" onclick="copyKey()">Copy</button>
+    </div>
   </div>
-  <div id="newKey"></div>
 </div>
 
-<div class="card">
-  <h2>API Keys</h2>
-  <table id="keysTable" class="compact">
-    <thead>
-      <tr>
-        <th>Label</th>
-        <th>Prefix</th>
-        <th>Created</th>
-        <th>Last used</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+<div class="list-card">
+  <div class="scroll" id="keysList" hidden>
+    <table class="list-table">
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Prefix</th>
+          <th>Created</th>
+          <th>Last used</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="empty-state" id="keysEmpty" hidden>
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+    </svg>
+    <p>No API keys yet. Create one above.</p>
+  </div>
 </div>
 
 <script>
   async function loadKeys() {
     const res = await fetch('/keys/list');
     const keys = await res.json() || [];
-    const tbody = document.querySelector('#keysTable tbody');
-    tbody.innerHTML = keys.map(k => `
+    document.getElementById('keysList').hidden = !keys.length;
+    document.getElementById('keysEmpty').hidden = !!keys.length;
+    document.querySelector('#keysList tbody').innerHTML = keys.map(k => `
       <tr>
-        <td>${escape(k.Label)}</td>
-        <td><code>${escape(k.KeyPrefix)}...</code></td>
-        <td>${new Date(k.CreatedAt).toLocaleDateString()}</td>
-        <td>${k.LastUsedAt ? new Date(k.LastUsedAt).toLocaleString() : '—'}</td>
-        <td><button class="danger" onclick="deleteKey('${escape(k.ID)}')">Revoke</button></td>
+        <td class="strong-cell">${escape(k.Label)}</td>
+        <td><code class="chip">${escape(k.KeyPrefix)}&hellip;</code></td>
+        <td class="muted-cell">${new Date(k.CreatedAt).toLocaleDateString()}</td>
+        <td class="muted-cell">${k.LastUsedAt ? new Date(k.LastUsedAt).toLocaleString() : 'never'}</td>
+        <td class="actions-cell"><button type="button" class="outline danger" onclick="deleteKey('${escape(k.ID)}')">Revoke</button></td>
       </tr>
-    `).join('') || '<tr><td colspan="5" style="color:#57606a">No client keys yet.</td></tr>';
+    `).join('');
   }
 
-  async function createKey() {
+  document.getElementById('create-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
     const label = document.getElementById('label').value.trim();
-    if (!label) { alert('Label is required'); return; }
+    if (!label) return;
     const res = await fetch('/keys', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -50,13 +67,17 @@
     });
     if (!res.ok) { alert('Error: ' + await res.text()); return; }
     const data = await res.json();
-    document.getElementById('newKey').innerHTML = `
-      <div class="plaintext-key">
-        <strong>Save this client key now — it won't be shown again:</strong><br>
-        <code>${escape(data.key)}</code>
-      </div>`;
-    document.getElementById('label').value = '';
+    document.getElementById('newKeyValue').textContent = data.key;
+    document.getElementById('newKey').hidden = false;
+    e.target.reset();
     loadKeys();
+  });
+
+  async function copyKey() {
+    await navigator.clipboard.writeText(document.getElementById('newKeyValue').textContent);
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
   }
 
   async function deleteKey(id) {

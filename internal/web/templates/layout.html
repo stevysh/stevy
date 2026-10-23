@@ -5,11 +5,17 @@
   <title>{{if .Title}}{{.Title}} — Stevy{{else}}Stevy{{end}}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    /* Always reserve the scrollbar's space, so switching between pages
+       that scroll and pages that don't doesn't shift the layout. */
+    html { scrollbar-gutter: stable; }
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #f6f8fa;
       color: #24292f;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
     header {
       background: #fff;
@@ -19,22 +25,30 @@
       top: 0;
       z-index: 30;
     }
-    header .inner {
-      max-width: 1200px;
+    /* Header and main share one column: 1152px wide, with 32px side
+       padding (24px under 1024px, 16px under 640px). */
+    header .inner, main {
+      width: 100%;
+      max-width: 1152px;
+      box-sizing: border-box;
       margin: 0 auto;
-      padding: 0 24px;
+      padding: 0 32px;
+    }
+    header .inner {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      min-height: 56px;
+      gap: 12px;
+      height: 64px;
     }
     header .left {
       display: flex;
+      min-width: 0;
       align-items: center;
       gap: 32px;
     }
     header h1 {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 800;
       margin: 0;
       letter-spacing: -0.01em;
@@ -44,13 +58,16 @@
     header h1 a { color: inherit; text-decoration: none; }
     header nav {
       display: flex;
-      gap: 4px;
+      min-width: 0;
+      gap: 8px;
       align-items: center;
+      overflow-x: auto;
     }
+    header nav a { flex-shrink: 0; }
     header nav a {
       display: flex;
       align-items: center;
-      padding: 6px 12px;
+      padding: 8px 12px;
       font-size: 14px;
       font-weight: 500;
       color: #57606a;
@@ -65,6 +82,7 @@
     }
     .user-menu {
       position: relative;
+      flex-shrink: 0;
     }
     .user-menu-button {
       display: flex;
@@ -72,18 +90,21 @@
       gap: 8px;
       background: none;
       border: 0;
+      box-shadow: none;
       cursor: pointer;
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-size: 13px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
       font-family: inherit;
       color: #24292f;
       transition: background 0.15s;
     }
+    .user-menu-button:focus-visible { outline: none; box-shadow: 0 0 0 2px #0969da; }
     .user-menu-button:hover { background: #f6f8fa; }
     .user-menu .avatar {
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background: linear-gradient(135deg, #ddf4ff, #b6e3ff);
       border: 1px solid #b6e3ff;
@@ -97,59 +118,85 @@
       flex-shrink: 0;
     }
     .user-menu .chevron {
-      width: 14px;
-      height: 14px;
-      color: #57606a;
+      width: 16px;
+      height: 16px;
+      color: #8c959f;
       transition: transform 0.15s;
     }
     .user-menu.open .chevron { transform: rotate(180deg); }
     .user-menu-dropdown {
       position: absolute;
       right: 0;
-      top: calc(100% + 6px);
-      min-width: 200px;
+      top: calc(100% + 8px);
+      width: 224px;
       background: #fff;
-      border: 1px solid #d0d7de;
-      border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
-      padding: 4px 0;
-      display: none;
+      border: 1px solid rgba(31, 35, 40, 0.08);
+      border-radius: 6px;
+      box-shadow: 0 10px 15px -3px rgba(31, 35, 40, 0.1), 0 4px 6px -4px rgba(31, 35, 40, 0.1);
       z-index: 40;
+      opacity: 0;
+      visibility: hidden;
+      transform: scale(0.95);
+      transform-origin: top right;
+      transition: opacity 0.1s, transform 0.1s, visibility 0.1s;
     }
-    .user-menu.open .user-menu-dropdown { display: block; }
-    .user-menu-dropdown .email-label {
-      padding: 8px 14px 2px;
-      font-size: 11px;
-      color: #57606a;
+    .user-menu.open .user-menu-dropdown { opacity: 1; visibility: visible; transform: scale(1); }
+    .user-menu-dropdown .section { padding: 4px 0; }
+    .user-menu-dropdown .section + .section { border-top: 1px solid #eaeef2; }
+    .user-menu-dropdown .signed-in {
+      margin: 0;
+      padding: 8px 16px;
+      font-size: 14px;
+      color: #6e7781;
     }
-    .user-menu-dropdown .email-value {
-      padding: 0 14px 8px;
-      font-size: 13px;
-      font-weight: 600;
+    .user-menu-dropdown .signed-in span {
+      display: block;
+      font-weight: 500;
       color: #24292f;
-      border-bottom: 1px solid #eaeef2;
-      margin-bottom: 4px;
-      word-break: break-all;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .user-menu-dropdown a {
-      display: block;
-      padding: 8px 14px;
-      font-size: 13px;
-      color: #24292f;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      font-size: 14px;
+      color: #424a53;
       text-decoration: none;
     }
-    .user-menu-dropdown a:hover { background: #f6f8fa; }
-    main {
-      max-width: 1200px;
-      margin: 20px auto 32px;
-      padding: 0 24px;
+    .user-menu-dropdown a svg { width: 20px; height: 20px; color: #8c959f; }
+    .user-menu-dropdown a:hover { background: #f6f8fa; color: #24292f; }
+    .user-menu-dropdown a:hover svg { color: #6e7781; }
+    @media (max-width: 640px) {
+      .user-menu-button .user-name { display: none; }
     }
-    .card {
-      background: #fff;
-      border: 1px solid #d0d7de;
-      border-radius: 8px;
+    main {
+      flex: 1;
+      padding-top: 32px;
+      padding-bottom: 32px;
+    }
+    footer {
+      margin-top: auto;
       padding: 24px;
-      margin-bottom: 24px;
+      border-top: 1px solid #d0d7de;
+      text-align: center;
+      font-size: 14px;
+      color: #6e7781;
+    }
+    footer p { margin: 0; }
+    footer a { color: inherit; text-decoration: none; }
+    footer a:hover { color: #24292f; }
+    footer .version { margin-top: 4px; font-size: 12px; color: #8c959f; }
+    @media (max-width: 1024px) {
+      header .inner, main { padding-left: 24px; padding-right: 24px; }
+    }
+    @media (max-width: 640px) {
+      header .inner, main { padding-left: 16px; padding-right: 16px; }
+      header .left { gap: 12px; }
+      header nav { gap: 4px; }
+      header nav a { padding: 8px; }
     }
     h2 { font-size: 18px; margin: 0 0 16px; }
     .row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
@@ -162,28 +209,45 @@
     }
     button {
       padding: 8px 16px;
-      background: #1f883d;
+      background: #0969da;
       color: #fff;
       border: 0;
       border-radius: 6px;
       font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
       cursor: pointer;
+      box-shadow: 0 1px 2px rgba(31, 35, 40, 0.1);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
+    button:hover { background: #0860ca; }
+    button:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #0969da; }
     button.secondary { background: #fff; color: #24292f; border: 1px solid #d0d7de; }
-    button.danger { background: #cf222e; padding: 4px 10px; font-size: 12px; }
+    button.secondary:hover { background: #f6f8fa; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #d8dee4; }
     th { color: #57606a; font-weight: 500; background: #f6f8fa; }
     code { background: #f6f8fa; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-    table.compact td, table.compact th { padding: 6px 10px; }
     table a { color: #0969da; text-decoration: none; }
     table a:hover { text-decoration: underline; }
     .badge {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
       padding: 2px 8px;
       border-radius: 12px;
       font-size: 11px;
       font-weight: 600;
+      white-space: nowrap;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 20%, transparent);
+    }
+    .badge::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.8;
     }
     .badge-available  { background: #ddf4ff; color: #0550ae; }
     .badge-pending    { background: #ddf4ff; color: #0550ae; }
@@ -193,18 +257,138 @@
     .badge-completed  { background: #dafbe1; color: #116329; }
     .badge-discarded  { background: #ffebe9; color: #82071e; }
     .badge-cancelled  { background: #eaeef2; color: #57606a; }
+    /* A state tag rather than a job status: amber, without the dot. */
+    .badge-paused     { background: #fff8c5; color: #9a6700; font-weight: 500; }
+    .badge-paused::before { display: none; }
     .pause-form { display: inline; margin: 0; }
     .muted { color: #57606a; }
-    .plaintext-key {
-      background: #fff8c5;
-      border: 1px solid #d4a72c;
-      padding: 12px;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      font-family: monospace;
-      font-size: 13px;
-      word-break: break-all;
+
+    /* Page title + list card, shared by the Jobs, Workers and API Keys pages. */
+    .page-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 24px;
     }
+    .panel {
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 12px;
+      box-shadow: 0 1px 2px rgba(27, 31, 36, 0.05);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .panel h3 { font-size: 14px; font-weight: 600; margin: 0 0 16px; }
+    .panel .row { margin-bottom: 0; }
+    .row input:focus {
+      outline: none;
+      border-color: #0969da;
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
+    }
+    .new-key {
+      margin-top: 16px;
+      padding: 16px;
+      border: 1px solid #aceebb;
+      background: #dafbe1;
+      border-radius: 8px;
+    }
+    .new-key p { margin: 0 0 8px; font-size: 13px; font-weight: 500; color: #116329; }
+    .new-key .key-line { display: flex; align-items: center; gap: 12px; }
+    .new-key code {
+      flex: 1;
+      background: none;
+      padding: 0;
+      word-break: break-all;
+      color: #24292f;
+    }
+    button.outline {
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 500;
+      background: #fff;
+      color: #57606a;
+      border: 1px solid #d0d7de;
+      transition: color 0.1s, border-color 0.1s;
+    }
+    button.outline:hover { color: #24292f; border-color: #8c959f; }
+    button.outline.danger { color: #cf222e; border-color: #ffcecb; }
+    button.outline.danger:hover { color: #82071e; border-color: #ff8182; }
+    .list-card {
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 12px;
+      box-shadow: 0 1px 2px rgba(27, 31, 36, 0.05);
+      overflow: hidden;
+    }
+    .list-card .scroll { overflow-x: auto; }
+    .list-table { white-space: nowrap; font-size: 12px; }
+    /* Fixed columns need room; narrower screens scroll the card instead. */
+    .list-table.fixed { table-layout: fixed; min-width: 860px; }
+    .list-table th {
+      padding: 14px 16px;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6e7781;
+      background: #f6f8fa;
+      border-bottom: 1px solid #d0d7de;
+    }
+    .list-table td { padding: 10px 16px; border-bottom: 1px solid #eaeef2; }
+    .list-table tbody tr:last-child td { border-bottom: 0; }
+    .list-table tbody tr { transition: background 0.1s; }
+    .list-table tbody tr:hover { background: #f6f8fa; }
+    .list-table tr.linked { position: relative; }
+    /* Keyboard focus only: after a click and Back, the link keeps focus,
+       and :focus-within would leave that row tinted. */
+    .list-table tr.linked:has(.row-link:focus-visible) { background: #ddf4ff; }
+    .list-table .row-link:focus { outline: none; }
+    .list-table .row-link::after { content: ""; position: absolute; inset: 0; }
+    /* The whole row is the link, so the ID itself stays plain. */
+    .list-table .id-link,
+    .list-table .id-link:hover {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #6e7781;
+      text-decoration: none;
+    }
+    .list-table .chip {
+      display: inline-block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: middle;
+      color: #57606a;
+      border: 1px solid #d0d7de;
+    }
+    .list-table .strong-cell { font-weight: 500; }
+    .list-table .muted-cell { color: #6e7781; font-variant-numeric: tabular-nums; }
+    .list-table .actions-cell { text-align: right; }
+    .list-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 24px;
+      font-size: 14px;
+      background: #f6f8fa;
+      border-top: 1px solid #d0d7de;
+    }
+    .list-footer a, .empty-state a { color: #0969da; font-weight: 500; text-decoration: none; }
+    .list-footer a:hover, .empty-state a:hover { text-decoration: underline; }
+    .empty-state { padding: 48px 24px; text-align: center; color: #57606a; }
+    .empty-state svg { width: 48px; height: 48px; color: #d0d7de; margin-bottom: 16px; }
+    .empty-state pre {
+      display: inline-block;
+      max-width: 100%;
+      overflow-x: auto;
+      text-align: left;
+      font-size: 12px;
+      background: #24292f;
+      color: #f6f8fa;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin: 0;
+    }
+    .empty-state pre code { background: none; padding: 0; color: inherit; }
   </style>
 </head>
 <body>
@@ -222,15 +406,23 @@
       <div class="user-menu" id="user-menu">
         <button type="button" class="user-menu-button" id="user-menu-button" aria-haspopup="true" aria-expanded="false">
           <span class="avatar">{{slice .User.Email 0 1}}</span>
-          <span>{{.User.Email}}</span>
+          <span class="user-name">{{if .User.Name}}{{.User.Name}}{{else}}{{.User.Email}}{{end}}</span>
           <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
         <div class="user-menu-dropdown" id="user-menu-dropdown" role="menu">
-          <div class="email-label">Signed in as</div>
-          <div class="email-value">{{.User.Email}}</div>
-          <a href="/auth/logout" role="menuitem">Logout</a>
+          <div class="section">
+            <p class="signed-in">Signed in as<span>{{.User.Email}}</span></p>
+          </div>
+          <div class="section">
+            <a href="/auth/logout" role="menuitem">
+              <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -239,6 +431,11 @@
   <main>
     {{template "content" .}}
   </main>
+  <footer>
+    <p><a href="/openapi.yaml">API Spec</a></p>
+    {{- $v := version}}
+    <p class="version">{{if eq $v "dev"}}dev{{else}}v{{$v}}{{end}}</p>
+  </footer>
 
   <script>
     (function () {

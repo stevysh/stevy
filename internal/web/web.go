@@ -17,6 +17,8 @@ import (
 //go:embed templates/*.html
 var templatesFS embed.FS
 
+const jobsPageSize = 50
+
 // allStatuses is the canonical order for filter pills.
 var allStatuses = []string{"pending", "scheduled", "available", "running", "retryable", "cancelled", "discarded", "completed"}
 
@@ -33,20 +35,27 @@ type Handler struct {
 	db       *db.DB
 	sessions *auth.SessionManager
 	driver   service.Driver
+	hostname string
+	version  string
 	tmpl     *template.Template            // standalone pages: login, job
 	pages    map[string]*template.Template // dashboard pages composed with layout.html
 }
 
-func NewHandler(database *db.DB, sessions *auth.SessionManager, driver service.Driver) *Handler {
+func NewHandler(database *db.DB, sessions *auth.SessionManager, driver service.Driver, hostname, version string) *Handler {
 	h := &Handler{
 		db:       database,
 		sessions: sessions,
 		driver:   driver,
+		hostname: hostname,
+		version:  version,
 		tmpl:     template.Must(template.ParseFS(templatesFS, "templates/login.html")),
 		pages:    map[string]*template.Template{},
 	}
+	funcs := template.FuncMap{
+		"version": func() string { return h.version },
+	}
 	for _, p := range []string{"jobs", "queues", "workers", "keys", "job"} {
-		h.pages[p] = template.Must(template.ParseFS(
+		h.pages[p] = template.Must(template.New("layout.html").Funcs(funcs).ParseFS(
 			templatesFS,
 			"templates/layout.html",
 			"templates/"+p+".html",
@@ -68,10 +77,13 @@ type pageData struct {
 	Jobs         []jobListRow
 	Queues       []queueRow
 	Workers      []workerRow
-	StatusFilter string                 // active status filter on the jobs page ("" = all)
-	StatusCounts map[string]int32       // per-status counts for filter pills
-	StatusTotal  int32                  // sum across all statuses
-	Statuses     []string               // ordered list of valid statuses for rendering pills
+	StatusFilter string           // active status filter on the jobs page ("" = all)
+	StatusCounts map[string]int32 // per-status counts for filter pills
+	StatusTotal  int32            // sum across all statuses
+	Statuses     []string         // ordered list of valid statuses for rendering pills
+	Hostname     string
+	Paged        bool   // true when showing a page other than the first
+	NextCursor   string // cursor for the next (older) page; empty on the last page
 }
 
 type queueRow struct {
@@ -112,13 +124,22 @@ func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 		status = ""
 	}
 
+	afterID := r.URL.Query().Get("after")
+
 	data := pageData{
 		layoutData:   layoutData{User: user, ActiveTab: "jobs"},
 		StatusFilter: status,
 		Statuses:     allStatuses,
+		Hostname:     h.hostname,
+		Paged:        afterID != "",
 	}
 
-	if jobs, err := h.driver.ListJobs(r.Context(), "", status, 50, ""); err == nil {
+	// Fetch one extra row to know whether an older page exists.
+	if jobs, err := h.driver.ListJobs(r.Context(), "", status, jobsPageSize+1, afterID); err == nil {
+		if len(jobs) > jobsPageSize {
+			jobs = jobs[:jobsPageSize]
+			data.NextCursor = jobs[len(jobs)-1].ID
+		}
 		for _, j := range jobs {
 			data.Jobs = append(data.Jobs, jobListRow{
 				ID:        j.ID,
@@ -297,7 +318,6 @@ type jobPageData struct {
 	Result      string
 	Payload     string
 	Errors      []jobErrorEntry
-	Polling     bool
 }
 
 // JobPage renders a status page for a single job by id. Requires auth.
@@ -353,11 +373,6 @@ func (h *Handler) JobPage(w http.ResponseWriter, r *http.Request) {
 				Error:   e.Error,
 			})
 		}
-	}
-
-	switch data.Status {
-	case "available", "pending", "scheduled", "running", "retryable":
-		data.Polling = true
 	}
 
 	h.renderPage(w, "job", data)
