@@ -1,52 +1,69 @@
 {{define "content"}}
-<div class="card">
-  <h2>Create Worker</h2>
-  <div class="row">
-    <input id="workerName" placeholder="Name (e.g. 'translator-prod-1')">
-    <button onclick="createWorker()">Create</button>
+<h2 class="page-title">Workers</h2>
+
+<div class="panel">
+  <h3>Create worker</h3>
+  <form id="create-form" class="row">
+    <input id="workerName" placeholder="Name (e.g. 'translator-prod-1')" required>
+    <button type="submit">Create</button>
+  </form>
+  <div id="newWorker" class="new-key" hidden>
+    <p>Save this worker key now &mdash; it won't be shown again:</p>
+    <div class="key-line">
+      <code id="newWorkerKey"></code>
+      <button type="button" class="outline" id="copyBtn" onclick="copyKey()">Copy</button>
+    </div>
   </div>
-  <div id="newWorker"></div>
 </div>
 
-<div class="card">
-  <h2>Workers</h2>
-  <table id="workersTable" class="compact">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Created by</th>
-        <th>Created</th>
-        <th>Last seen</th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+<div class="list-card">
+  <div class="scroll" id="workersList" hidden>
+    <table class="list-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Created by</th>
+          <th>Created</th>
+          <th>Last seen</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="empty-state" id="workersEmpty" hidden>
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+    </svg>
+    <p>No workers yet. Create one above.</p>
+  </div>
 </div>
 
 <script>
   async function loadWorkers() {
     const res = await fetch('/workers/list');
     const workers = await res.json() || [];
-    const tbody = document.querySelector('#workersTable tbody');
-    tbody.innerHTML = workers.map(w => `
+    document.getElementById('workersList').hidden = !workers.length;
+    document.getElementById('workersEmpty').hidden = !!workers.length;
+    document.querySelector('#workersList tbody').innerHTML = workers.map(w => `
       <tr>
-        <td>${escape(w.name)}</td>
-        <td>${escape(w.created_by)}</td>
-        <td>${escape(w.created_at)}</td>
-        <td>${w.last_seen_at ? escape(w.last_seen_at) : '<span class="muted">never</span>'}</td>
+        <td class="strong-cell">${escape(w.name)}</td>
+        <td class="muted-cell">${escape(w.created_by)}</td>
+        <td class="muted-cell">${escape(w.created_at)}</td>
+        <td class="muted-cell">${w.last_seen_at ? escape(w.last_seen_at) : 'never'}</td>
         <td>${w.last_seen_at
           ? (w.active ? '<span class="badge badge-completed">active</span>' : '<span class="badge badge-cancelled">offline</span>')
           : '<span class="muted">—</span>'}</td>
-        <td><button class="danger" onclick="deleteWorker('${escape(w.id)}')">Delete</button></td>
+        <td class="actions-cell"><button type="button" class="outline danger" onclick="deleteWorker('${escape(w.id)}')">Delete</button></td>
       </tr>
-    `).join('') || '<tr><td colspan="6" style="color:#57606a">No workers yet.</td></tr>';
+    `).join('');
   }
 
-  async function createWorker() {
+  document.getElementById('create-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
     const name = document.getElementById('workerName').value.trim();
-    if (!name) { alert('Name is required'); return; }
+    if (!name) return;
     const res = await fetch('/workers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -54,13 +71,17 @@
     });
     if (!res.ok) { alert('Error: ' + await res.text()); return; }
     const data = await res.json();
-    document.getElementById('newWorker').innerHTML = `
-      <div class="plaintext-key">
-        <strong>Save this worker key now — it won't be shown again:</strong><br>
-        <code>${escape(data.key)}</code>
-      </div>`;
-    document.getElementById('workerName').value = '';
+    document.getElementById('newWorkerKey').textContent = data.key;
+    document.getElementById('newWorker').hidden = false;
+    e.target.reset();
     loadWorkers();
+  });
+
+  async function copyKey() {
+    await navigator.clipboard.writeText(document.getElementById('newWorkerKey').textContent);
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
   }
 
   async function deleteWorker(id) {

@@ -207,11 +207,12 @@ func cmdServe() error {
 
 	database := db.New(b.sqlDB, b.dialect)
 
+	hostname := getenv("HOSTNAME", "http://localhost:8080")
 	sessions := auth.NewSessionManager([]byte(mustEnv("SESSION_SECRET")))
 	oauth := auth.NewOAuthHandler(auth.OAuthConfig{
 		ClientID:       mustEnv("GOOGLE_CLIENT_ID"),
 		ClientSecret:   mustEnv("GOOGLE_CLIENT_SECRET"),
-		RedirectURL:    getenv("HOSTNAME", "http://localhost:8080") + "/auth/google/callback",
+		RedirectURL:    hostname + "/auth/google/callback",
 		AllowedDomains: splitCSV(os.Getenv("ALLOWED_DOMAINS")),
 	}, sessions, database)
 	apiKeys := auth.NewAPIKeyHandler(database, sessions)
@@ -223,7 +224,7 @@ func cmdServe() error {
 
 	jobSvc := service.NewJob(b.driver)
 	queueSvc := service.NewQueue(b.driver)
-	webHandler := web.NewHandler(database, sessions, b.driver)
+	webHandler := web.NewHandler(database, sessions, b.driver, hostname, Version)
 
 	mux := http.NewServeMux()
 
@@ -264,7 +265,6 @@ func cmdServe() error {
 	mux.HandleFunc("GET /{id}", webHandler.JobPage)
 	mux.HandleFunc("/", webHandler.Index)
 
-	hostname := getenv("HOSTNAME", "http://localhost:8080")
 	publicFS := http.FileServer(http.Dir("public"))
 	if spec, err := os.ReadFile("public/openapi.yaml"); err == nil {
 		spec = bytes.ReplaceAll(spec, []byte("https://stevy.example.com"), []byte(hostname))

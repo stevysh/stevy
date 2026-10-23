@@ -1,38 +1,41 @@
 {{define "content"}}
 <style>
-  .job-detail .card { padding: 24px; margin-bottom: 16px; }
-  .job-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-  .job-detail h2 { font-size: 20px; margin: 0; word-break: break-all; }
-  .meta { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 13px; }
-  .meta .label { color: #57606a; }
-  .meta .value { font-family: monospace; }
-  .progress-wrap { margin-top: 16px; }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #57606a;
+    text-decoration: none;
+  }
+  .back-link:hover { color: #0969da; }
+  .job-header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .job-header .page-title { margin: 0; word-break: break-all; }
+  .meta { display: grid; grid-template-columns: 140px 1fr; gap: 10px 12px; margin: 0; font-size: 13px; }
+  .meta dt { color: #6e7781; }
+  .meta dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .meta dd.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .progress-wrap { margin-top: 20px; }
+  .progress-label { font-size: 13px; color: #6e7781; margin-bottom: 6px; }
   .progress-bar {
     height: 8px;
     background: #eaeef2;
     border-radius: 4px;
     overflow: hidden;
-    margin-top: 4px;
   }
   .progress-fill {
     height: 100%;
-    background: #1f883d;
+    background: #0969da;
     border-radius: 4px;
     transition: width 0.3s;
   }
-  .section-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    color: #57606a;
-    margin-bottom: 8px;
-  }
-  .job-detail pre {
+  .panel pre {
     background: #f6f8fa;
     border: 1px solid #d0d7de;
-    border-radius: 6px;
-    padding: 12px;
+    border-radius: 8px;
+    padding: 12px 16px;
     font-size: 12px;
     overflow-x: auto;
     margin: 0;
@@ -40,91 +43,84 @@
   .error-box {
     background: #ffebe9;
     border: 1px solid #ffcecb;
-    border-radius: 6px;
-    padding: 12px;
+    border-radius: 8px;
+    padding: 12px 16px;
     font-size: 13px;
     color: #82071e;
-    font-family: monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     word-break: break-word;
   }
-  .polling-note {
-    font-size: 12px;
-    color: #57606a;
-    margin-top: 8px;
-  }
+  .error-box + .error-box { margin-top: 8px; }
+  .error-box .when { display: block; margin-bottom: 4px; font-size: 11px; opacity: 0.7; }
 </style>
 
-<div class="job-detail">
-  <div class="card">
-    <div class="job-header">
-      <span class="badge badge-{{.Status}}">{{.Status}}</span>
-      <h2>{{.Kind}}</h2>
-    </div>
+<a class="back-link" href="/">&larr; Jobs</a>
 
-    <div class="meta">
-      <span class="label">Job ID</span>
-      <span class="value">{{.ID}}</span>
+<div class="job-header">
+  <h2 class="page-title">{{.Kind}}</h2>
+  <span class="badge badge-{{.Status}}">{{.Status}}</span>
+</div>
 
-      <span class="label">Queue</span>
-      <span class="value">{{.Queue}}</span>
+<div class="panel">
+  <h3>Details</h3>
+  <dl class="meta">
+    <dt>Job ID</dt>
+    <dd class="mono">{{.ID}}</dd>
 
-      <span class="label">Created</span>
-      <span class="value">{{.CreatedAt}}</span>
+    <dt>Queue</dt>
+    <dd><code>{{.Queue}}</code></dd>
 
-      {{if .AttemptedAt}}
-      <span class="label">Attempted</span>
-      <span class="value">{{.AttemptedAt}}</span>
-      {{end}}
+    <dt>Created</dt>
+    <dd>{{.CreatedAt}}</dd>
 
-      {{if .FinalizedAt}}
-      <span class="label">Finished</span>
-      <span class="value">{{.FinalizedAt}}</span>
-      {{end}}
-
-      {{if .Attempt}}
-      <span class="label">Attempts</span>
-      <span class="value">{{.Attempt}}</span>
-      {{end}}
-    </div>
-
-    {{if .Polling}}
-    <p class="polling-note">Refreshing every 3 seconds…</p>
-    <script>setTimeout(() => location.reload(), 3000);</script>
+    {{if .AttemptedAt}}
+    <dt>Attempted</dt>
+    <dd>{{.AttemptedAt}}</dd>
     {{end}}
 
-    {{if and (eq .Status "running") (gt .Progress 0)}}
-    <div class="progress-wrap">
-      <div class="section-label">Progress — {{.Progress}}%</div>
-      <div class="progress-bar">
-        <div class="progress-fill" style="width:{{.Progress}}%"></div>
-      </div>
-    </div>
+    {{if .FinalizedAt}}
+    <dt>Finished</dt>
+    <dd>{{.FinalizedAt}}</dd>
     {{end}}
-  </div>
 
-  {{if .Errors}}
-  <div class="card">
-    <div class="section-label">Errors</div>
-    {{range .Errors}}
-    <div class="error-box" style="margin-bottom:8px">
-      <span style="opacity:.6;font-size:11px">attempt {{.Attempt}} · {{.At}}</span><br>{{.Error}}
-    </div>
+    {{if .Attempt}}
+    <dt>Attempts</dt>
+    <dd>{{.Attempt}}</dd>
     {{end}}
-  </div>
-  {{end}}
+  </dl>
 
-  {{if .Result}}
-  <div class="card">
-    <div class="section-label">Result</div>
-    <pre>{{.Result}}</pre>
-  </div>
-  {{end}}
-
-  {{if .Payload}}
-  <div class="card">
-    <div class="section-label">Payload</div>
-    <pre>{{.Payload}}</pre>
+  {{if and (eq .Status "running") (gt .Progress 0)}}
+  <div class="progress-wrap">
+    <div class="progress-label">Progress — {{.Progress}}%</div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width:{{.Progress}}%"></div>
+    </div>
   </div>
   {{end}}
 </div>
+
+{{if .Errors}}
+<div class="panel">
+  <h3>Errors</h3>
+  {{range .Errors}}
+  <div class="error-box">
+    <span class="when">attempt {{.Attempt}} · {{.At}}</span>{{.Error}}
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{if .Result}}
+<div class="panel">
+  <h3>Result</h3>
+  <pre>{{.Result}}</pre>
+</div>
+{{end}}
+
+{{if .Payload}}
+<div class="panel">
+  <h3>Payload</h3>
+  <pre>{{.Payload}}</pre>
+</div>
+{{end}}
 {{end}}

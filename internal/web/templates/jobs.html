@@ -3,77 +3,107 @@
   .filter-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin: 0 0 16px;
+    gap: 8px;
+    margin: 0 0 24px;
   }
   .filter-pill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 10px;
+    padding: 4px 12px;
     border: 1px solid #d0d7de;
-    border-radius: 16px;
-    font-size: 12px;
-    color: #57606a;
+    border-radius: 999px;
+    font-size: 14px;
+    color: #424a53;
     background: #fff;
     text-decoration: none;
-    transition: background 0.1s;
+    text-transform: capitalize;
+    transition: background 0.15s, border-color 0.15s;
   }
-  .filter-pill:hover { background: #f6f8fa; color: #24292f; }
+  .filter-pill:hover { background: #f6f8fa; border-color: #afb8c1; }
+  .filter-pill:focus-visible { outline: none; box-shadow: 0 0 0 2px #0969da; }
   .filter-pill .count {
+    font-size: 12px;
     font-variant-numeric: tabular-nums;
     color: #8c959f;
-    font-weight: 500;
   }
   .filter-pill.active {
     background: #0969da;
     border-color: #0969da;
     color: #fff;
   }
-  .filter-pill.active .count { color: rgba(255,255,255,0.8); }
+  .filter-pill.active .count { color: #b6e3ff; }
 </style>
 
-<div class="card">
-  <h2>Jobs</h2>
+<h2 class="page-title">Jobs</h2>
 
-  <div class="filter-row">
-    <a class="filter-pill {{if eq .StatusFilter ""}}active{{end}}" href="/">
-      All <span class="count">{{.StatusTotal}}</span>
-    </a>
-    {{$active := .StatusFilter}}
-    {{$counts := .StatusCounts}}
-    {{range .Statuses}}
-    <a class="filter-pill {{if eq $active .}}active{{end}}" href="/?status={{.}}">
-      {{.}} <span class="count">{{index $counts .}}</span>
-    </a>
-    {{end}}
-  </div>
+<nav class="filter-row" aria-label="Filter by status">
+  <a class="filter-pill {{if eq .StatusFilter ""}}active{{end}}" href="/"{{if eq .StatusFilter ""}} aria-current="page"{{end}}>
+    All <span class="count">{{.StatusTotal}}</span>
+  </a>
+  {{$active := .StatusFilter}}
+  {{$counts := .StatusCounts}}
+  {{range .Statuses}}
+  <a class="filter-pill {{if eq $active .}}active{{end}}" href="/?status={{.}}"{{if eq $active .}} aria-current="page"{{end}}>
+    {{.}} <span class="count">{{index $counts .}}</span>
+  </a>
+  {{end}}
+</nav>
 
+{{$first := "/"}}{{if .StatusFilter}}{{$first = printf "/?status=%s" .StatusFilter}}{{end}}
+<div class="list-card">
   {{if .Jobs}}
-  <table class="compact">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Queue</th>
-        <th>Kind</th>
-        <th>Status</th>
-        <th>Created</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{range .Jobs}}
-      <tr>
-        <td><a href="/{{.ID}}"><code>{{.ID}}</code></a></td>
-        <td>{{.Queue}}</td>
-        <td>{{.Kind}}</td>
-        <td><span class="badge badge-{{.Status}}">{{.Status}}</span></td>
-        <td>{{.CreatedAt}}</td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
+  <div class="scroll">
+    <table class="list-table fixed">
+      <thead>
+        <tr>
+          <th style="width: 240px">ID</th>
+          <th>Queue</th>
+          <th>Kind</th>
+          <th style="width: 110px">Status</th>
+          <th style="width: 150px">Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Jobs}}
+        <tr class="linked">
+          {{/* The link covers the whole row, so any cell opens the job. */}}
+          <td><a class="id-link row-link" href="/{{.ID}}">{{.ID}}</a></td>
+          <td><code class="chip" title="{{.Queue}}">{{.Queue}}</code></td>
+          <td><code class="chip" title="{{.Kind}}">{{.Kind}}</code></td>
+          <td><span class="badge badge-{{.Status}}">{{.Status}}</span></td>
+          <td class="muted-cell">{{.CreatedAt}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{if or .Paged .NextCursor}}
+  <div class="list-footer">
+    {{if .Paged}}<a href="{{$first}}">&larr; Newest</a>{{else}}<span></span>{{end}}
+    {{if .NextCursor}}<a href="/?{{if .StatusFilter}}status={{.StatusFilter}}&{{end}}after={{.NextCursor}}">Older &rarr;</a>{{else}}<span></span>{{end}}
+  </div>
+  {{end}}
+  {{else if .Paged}}
+  <div class="empty-state">
+    <p>No more jobs. <a href="{{$first}}">Back to newest</a></p>
+  </div>
+  {{else if .StatusFilter}}
+  <div class="empty-state">
+    <p>No {{.StatusFilter}} jobs. <a href="/">Show all</a></p>
+  </div>
   {{else}}
-  <p class="muted">No jobs{{if .StatusFilter}} with status <code>{{.StatusFilter}}</code>{{end}}.</p>
+  <div class="empty-state">
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
+    <p>No jobs yet. Enqueue one with the API:</p>
+    <pre><code>curl -X POST {{.Hostname}}/v1/jobs \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"queue": "default", "kind": "send_email", "payload": {"to": "user@example.com"}}'</code></pre>
+    <p>Need a key? Create one in <a href="/keys">API Keys</a>.</p>
+  </div>
   {{end}}
 </div>
 {{end}}
